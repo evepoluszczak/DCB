@@ -54,7 +54,8 @@ def get_data_folder():
     return None
 
 ASSETS_FOLDER = os.path.join(get_base_path(), 'assets')
-DATA_FOLDER = get_data_folder()
+# DATA_FOLDER sera initialisé dans main() pour éviter les timeouts réseau au chargement du module
+DATA_FOLDER = None
 
 # French months
 FRENCH_MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -554,6 +555,12 @@ def load_all_data():
 
 # Interface principale
 def main():
+    global DATA_FOLDER
+
+    # Initialiser DATA_FOLDER si ce n'est pas déjà fait
+    if DATA_FOLDER is None:
+        DATA_FOLDER = get_data_folder()
+
     init_session_state()
 
     # Vérification de l'existence du dossier de données
