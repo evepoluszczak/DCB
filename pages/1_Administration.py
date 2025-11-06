@@ -16,11 +16,8 @@ parent_dir = str(Path(__file__).parent.parent)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-st.set_page_config(
-    page_title="Administration DCB",
-    page_icon="📤",
-    layout="wide"
-)
+# Note: st.set_page_config() est uniquement dans la page principale
+# Les pages secondaires ne doivent PAS avoir st.set_page_config()
 
 st.title("📤 Administration - Gestion des données DCB")
 
