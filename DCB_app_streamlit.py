@@ -474,16 +474,12 @@ def load_all_data():
     global stand_ouv, standTot, standC, standD, standE
 
     # Charger GraphNames
-    st.write("🔄 Chargement de GraphNames...")
     graph_names, _ = load_data("GraphNames", "Annexe")
-    st.write(f"✅ GraphNames chargé : {list(graph_names.keys())}")
 
     gate_secteurs = ["A", "B", "C", "D", "E/F"]
     graph_names["Gate"] += ["Gate : " + secteur for secteur in gate_secteurs]
     graph_names["Check-in"].sort()
     graph_names_list = [val for value in graph_names.values() for val in value]
-
-    st.write(f"✅ graph_names_list créé avec {len(graph_names_list)} éléments")
 
     TEMPS_PROCESS, _ = load_data("TempsProcess", "Capacite/TempsProcess")
     process_present = list(TEMPS_PROCESS.keys())
@@ -554,7 +550,6 @@ def load_all_data():
     end_date = dates_in_filename_surete[1]
     start_month_date = datetime.date(start_date.year, start_date.month, 1)
 
-    st.write("✅ Toutes les données ont été chargées avec succès!")
     return True
 
 # Interface principale
