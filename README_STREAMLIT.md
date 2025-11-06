@@ -19,6 +19,39 @@ pip install -r requirements.txt
 
 ## Utilisation
 
+### Option 1 : Interface d'administration (Recommandée) ✨
+
+**Nouvelle fonctionnalité !** L'application dispose maintenant d'une interface d'administration pour gérer les données.
+
+#### Étapes rapides :
+
+1. **Générer les données en local** :
+   ```bash
+   cd TraitementDonnee/Code
+   python Traitement_donnee.py
+   ```
+
+2. **Créer un ZIP** :
+   - Windows : Clic droit sur `Data Source` → Envoyer vers → Dossier compressé
+   - Linux/Mac : `zip -r Data_Source.zip "Data Source"`
+
+3. **Upload dans l'application** :
+   - Lancez l'app : `streamlit run DCB_app_streamlit.py`
+   - Allez dans la sidebar → "📤 Administration"
+   - Uploadez le ZIP
+   - Cliquez sur "Extraire et installer"
+   - Actualisez la page principale
+
+**Avantages :**
+- ✅ Pas besoin de commit Git
+- ✅ Fonctionne sur Streamlit Cloud
+- ✅ Mise à jour instantanée
+- ✅ Interface visuelle simple
+
+Consultez [GUIDE_ADMINISTRATION.md](GUIDE_ADMINISTRATION.md) pour plus de détails.
+
+### Option 2 : Méthode manuelle (Classique)
+
 ### 1. Préparer les données
 
 #### a) Configurer le dossier de données
