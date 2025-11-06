@@ -147,62 +147,178 @@ with tab1:
 with tab2:
     st.header("⚙️ Exécuter le traitement des données")
 
-    st.warning("""
-    ⚠️ **Important** : Cette fonctionnalité ne peut s'exécuter que sur une machine
-    avec accès au partage réseau `//gva.tld/aig/O/...`
-
-    Sur Streamlit Cloud, cette fonctionnalité n'est pas disponible.
+    st.info("""
+    **Nouvelle fonctionnalité !** Vous pouvez maintenant uploader les fichiers WEBI sources
+    et lancer le traitement directement depuis l'interface, sans accès au réseau local.
     """)
 
-    # Vérifier si on est en local ou sur Streamlit Cloud
-    is_local = not os.path.exists('/mount/src')  # Streamlit Cloud utilise /mount/src
+    st.markdown("""
+    ### Options disponibles
 
-    if is_local:
-        st.success("✅ Vous êtes en local - Le traitement peut être exécuté")
+    **Option A : Upload des fichiers WEBI (Fonctionne partout)**
+    - Uploadez un ZIP contenant vos fichiers sources WEBI
+    - Le traitement s'exécute dans l'app
+    - Les données JSON sont générées automatiquement
 
-        st.markdown("""
-        ### Processus de traitement
+    **Option B : Utiliser le chemin réseau (Local uniquement)**
+    - Si vous êtes en local avec accès au réseau
+    - Le traitement accède directement aux fichiers WEBI
+    """)
 
-        Le script va exécuter les étapes suivantes :
-        1. Traitement de la donnée historique
-        2. Traitement de la donnée future
-        3. Calcul des retards
-        4. Calcul du nombre de mouvements par heure roulante
-        5. Calcul des embarquements par tranche de 5 minutes
-        6. Application des show-up profiles aux vols
-        7. Transformation du planning sûreté
-        8. Calcul des plannings idéaux (douane, sûreté)
-        9. Transformation de la donnée au format DCB app
-        10. Transformation de la donnée au format PowerBI
-        """)
+    method = st.radio(
+        "Choisissez une méthode :",
+        ["📤 Upload fichiers WEBI", "🌐 Utiliser chemin réseau"],
+        key="method_choice"
+    )
 
-        # Vérifier que le chemin réseau est accessible
-        network_path = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/WEBI"
-
-        if st.button("🔍 Vérifier l'accès au réseau"):
-            if os.path.exists(network_path):
-                st.success(f"✅ Le chemin réseau est accessible : {network_path}")
-            else:
-                st.error(f"❌ Le chemin réseau n'est pas accessible : {network_path}")
-
+    if method == "📤 Upload fichiers WEBI":
         st.markdown("---")
+        st.subheader("📤 Upload des fichiers sources WEBI")
 
-        if st.button("▶️ Lancer le traitement", type="primary"):
-            st.warning("🚧 Cette fonctionnalité sera implémentée dans une prochaine version")
-            st.info("""
-            Pour l'instant, veuillez :
-            1. Exécuter `python Traitement_donnee.py` depuis le terminal
-            2. Compresser le dossier `Data Source` résultant
-            3. Uploader le ZIP dans l'onglet "Upload JSON"
-            """)
-    else:
-        st.error("""
-        ❌ Vous êtes sur Streamlit Cloud - Le traitement ne peut pas s'exécuter ici
+        st.warning("""
+        **Fichiers requis :** Uploadez un ZIP contenant tous les fichiers Excel/CSV exportés depuis WEBI.
 
-        **Solution :**
-        1. Exécutez `Traitement_donnee.py` sur votre machine locale
-        2. Utilisez l'onglet "Upload JSON" pour uploader les résultats
+        Ces fichiers incluent généralement :
+        - Données historiques de vols
+        - Données futures de vols
+        - Plannings sûreté/douane
+        - Autres fichiers de configuration
         """)
+
+        uploaded_webi = st.file_uploader(
+            "Choisir un fichier ZIP contenant les fichiers WEBI",
+            type=['zip'],
+            help="ZIP avec tous les fichiers Excel/CSV exportés depuis WEBI",
+            key="webi_upload"
+        )
+
+        if uploaded_webi is not None:
+            st.success(f"Fichier uploadé : {uploaded_webi.name} ({uploaded_webi.size / 1024 / 1024:.2f} MB)")
+
+            if st.button("▶️ Lancer le traitement", type="primary", key="run_with_upload"):
+                with st.spinner("🔄 Traitement en cours..."):
+                    try:
+                        # Créer un dossier temporaire
+                        with tempfile.TemporaryDirectory() as temp_dir:
+                            # Extraire le ZIP
+                            zip_path = Path(temp_dir) / "webi_files.zip"
+                            with open(zip_path, 'wb') as f:
+                                f.write(uploaded_webi.getbuffer())
+
+                            webi_folder = Path(temp_dir) / "WEBI"
+                            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                                zip_ref.extractall(webi_folder)
+
+                            st.info("✅ Fichiers extraits")
+
+                            # Importer le wrapper
+                            sys.path.insert(0, str(Path(__file__).parent.parent / "TraitementDonnee" / "Code"))
+                            from Traitement_donnee_wrapper import run_traitement
+
+                            # Préparer le callback pour afficher la progression
+                            progress_placeholder = st.empty()
+                            progress_messages = []
+
+                            def progress_callback(message):
+                                progress_messages.append(message)
+                                progress_placeholder.text_area(
+                                    "Progression :",
+                                    value="\n".join(progress_messages[-20:]),  # Derniers 20 messages
+                                    height=300
+                                )
+
+                            # Exécuter le traitement
+                            output_folder = get_data_source_folder()
+                            result = run_traitement(
+                                str(webi_folder),
+                                str(output_folder),
+                                progress_callback=progress_callback
+                            )
+
+                            if result['success']:
+                                st.success(f"✅ {result['message']}")
+                                st.balloons()
+                                st.info("🔄 Actualisez la page principale pour voir les nouvelles données")
+
+                                if st.button("🗑️ Effacer le cache et actualiser"):
+                                    st.cache_data.clear()
+                                    st.rerun()
+                            else:
+                                st.error(f"❌ {result['message']}")
+                                if 'error' in result:
+                                    with st.expander("Détails de l'erreur"):
+                                        st.code(result['error'])
+
+                    except Exception as e:
+                        st.error(f"❌ Erreur lors du traitement : {str(e)}")
+                        st.exception(e)
+
+    else:  # Utiliser chemin réseau
+        st.markdown("---")
+        st.subheader("🌐 Utiliser le chemin réseau local")
+
+        # Vérifier si on est en local ou sur Streamlit Cloud
+        is_local = not os.path.exists('/mount/src')
+
+        if not is_local:
+            st.error("""
+            ❌ Vous êtes sur Streamlit Cloud - Cette option n'est pas disponible
+
+            **Solution :** Utilisez l'option "Upload fichiers WEBI" ci-dessus
+            """)
+        else:
+            st.success("✅ Vous êtes en local - Le traitement peut être exécuté")
+
+            # Vérifier que le chemin réseau est accessible
+            network_path = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/WEBI"
+
+            if st.button("🔍 Vérifier l'accès au réseau"):
+                if os.path.exists(network_path):
+                    st.success(f"✅ Le chemin réseau est accessible : {network_path}")
+                else:
+                    st.error(f"❌ Le chemin réseau n'est pas accessible : {network_path}")
+
+            st.markdown("---")
+
+            if st.button("▶️ Lancer le traitement avec chemin réseau", type="primary", key="run_with_network"):
+                with st.spinner("🔄 Traitement en cours..."):
+                    try:
+                        # Importer le wrapper
+                        sys.path.insert(0, str(Path(__file__).parent.parent / "TraitementDonnee" / "Code"))
+                        from Traitement_donnee_wrapper import run_traitement_with_network_path
+
+                        # Préparer le callback pour afficher la progression
+                        progress_placeholder = st.empty()
+                        progress_messages = []
+
+                        def progress_callback(message):
+                            progress_messages.append(message)
+                            progress_placeholder.text_area(
+                                "Progression :",
+                                value="\n".join(progress_messages[-20:]),
+                                height=300
+                            )
+
+                        # Exécuter le traitement
+                        result = run_traitement_with_network_path(progress_callback=progress_callback)
+
+                        if result['success']:
+                            st.success(f"✅ {result['message']}")
+                            st.balloons()
+                            st.info("🔄 Actualisez la page principale pour voir les nouvelles données")
+
+                            if st.button("🗑️ Effacer le cache et actualiser"):
+                                st.cache_data.clear()
+                                st.rerun()
+                        else:
+                            st.error(f"❌ {result['message']}")
+                            if 'error' in result:
+                                with st.expander("Détails de l'erreur"):
+                                    st.code(result['error'])
+
+                    except Exception as e:
+                        st.error(f"❌ Erreur lors du traitement : {str(e)}")
+                        st.exception(e)
 
 # ========================
 # TAB 3 : État des données
