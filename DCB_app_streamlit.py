@@ -639,7 +639,21 @@ def main():
     # Vérifier que graph_names_list a bien été initialisé après chargement
     if len(graph_names_list) == 0:
         st.error("❌ Les données n'ont pas été chargées correctement (graph_names_list est vide).")
-        st.info("Cela peut indiquer un problème avec les fichiers GraphNames.json ou la structure des données.")
+
+        st.warning("""
+        ### 📤 Solution : Utilisez la page d'Administration
+
+        Pour uploader des données :
+        1. **Regardez la sidebar à gauche** (cliquez sur `>` si elle est fermée)
+        2. Cliquez sur **"📤 Administration"** ou **"1 Administration"**
+        3. Suivez les instructions pour uploader un fichier ZIP contenant les données
+
+        **Note :** La sidebar de navigation multi-page de Streamlit devrait être visible même si les données
+        ne sont pas chargées. Si vous ne la voyez pas, essayez de :
+        - Cliquer sur la flèche `>` en haut à gauche
+        - Appuyer sur la touche `[` de votre clavier
+        - Actualiser la page (F5 ou Ctrl+R)
+        """)
 
         # Informations de débogage
         with st.expander("🔍 Informations de débogage"):
@@ -650,11 +664,36 @@ def main():
             st.write(f"- Contenu de graph_names : {graph_names}")
             st.write(f"- Dossier de données : {DATA_FOLDER}")
 
-        # Bouton pour réessayer
-        if st.button("🔄 Réessayer le chargement"):
-            st.session_state.data_loaded = False
-            st.cache_data.clear()
-            st.rerun()
+            # Vérifier si le dossier existe et son contenu
+            if DATA_FOLDER and os.path.exists(DATA_FOLDER):
+                st.write(f"- Le dossier existe : ✅")
+                st.write(f"- Contenu du dossier :")
+                try:
+                    for item in os.listdir(DATA_FOLDER):
+                        item_path = os.path.join(DATA_FOLDER, item)
+                        if os.path.isdir(item_path):
+                            st.write(f"  📁 {item}/")
+                        else:
+                            st.write(f"  📄 {item}")
+                except Exception as e:
+                    st.write(f"  Erreur lors de la lecture : {e}")
+            else:
+                st.write(f"- Le dossier existe : ❌")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            # Bouton pour réessayer
+            if st.button("🔄 Réessayer le chargement"):
+                st.session_state.data_loaded = False
+                st.cache_data.clear()
+                st.rerun()
+
+        with col2:
+            # Lien vers la documentation
+            st.markdown("[📖 Voir la documentation](ACCES_ADMIN.md)")
+
+        # Ne pas faire return, afficher un message minimal à la place
+        st.info("👆 Utilisez la page Administration dans la sidebar pour charger des données")
         return
 
     # En-tête
