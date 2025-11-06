@@ -1,0 +1,25 @@
+/* ton grid existant */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(450px, 1fr));
+    column-gap: 300px;
+    row-gap: 40px;
+    padding: 40px;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 auto;
+  }
+  
+  /* dès que la fenêtre < 940px, on passe en 1 colonne */
+  @media (max-width: 940px) {
+    .calendar-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  /* nouveau : on fixe le min-width des cases via CSS */
+  .calendar-grid .month-box {
+    min-width: 450px;      /* ne descend jamais sous 450px */
+    box-sizing: border-box;
+  }
+  
