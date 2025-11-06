@@ -48,10 +48,22 @@ Thumbs.db
 *.tmp
 *.bak
 
-# Data folders (décommentez si vous ne voulez pas commiter les données)
-# Data Source/
-# DataSource/
-# data/
+# Data folders (fichiers de données générés et sources WEBI)
+Data Source/
+DataSource/
+data/
+
+# Fichiers WEBI (trop volumineux pour GitHub)
+TraitementDonnee/Data/Input/WEBI/*.csv
+TraitementDonnee/Data/Input/WEBI/*.xlsx
+TraitementDonnee/Data/Input/WEBI/*.xls
+TraitementDonnee/Data/Input/WEBI/*.xlsm
+**/WEBI/*.csv
+**/WEBI/*.xlsx
+**/WEBI/*.xls
+
+# Fichiers de backup
+*.backup
 
 # Compiled Python files
 *.pyc
