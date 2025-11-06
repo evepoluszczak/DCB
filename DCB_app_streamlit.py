@@ -473,82 +473,88 @@ def load_all_data():
     global start_date, end_date, start_month_date
     global stand_ouv, standTot, standC, standD, standE
 
-    with st.spinner("Chargement des données..."):
-        graph_names, _ = load_data("GraphNames", "Annexe")
-        gate_secteurs = ["A", "B", "C", "D", "E/F"]
-        graph_names["Gate"] += ["Gate : " + secteur for secteur in gate_secteurs]
-        graph_names["Check-in"].sort()
-        graph_names_list = [val for value in graph_names.values() for val in value]
+    # Charger GraphNames
+    st.write("🔄 Chargement de GraphNames...")
+    graph_names, _ = load_data("GraphNames", "Annexe")
+    st.write(f"✅ GraphNames chargé : {list(graph_names.keys())}")
 
-        TEMPS_PROCESS, _ = load_data("TempsProcess", "Capacite/TempsProcess")
-        process_present = list(TEMPS_PROCESS.keys())
-        for process in graph_names["Check-in"] + graph_names["Sûreté"] + graph_names["Douane"]:
-            if process not in process_present:
-                TEMPS_PROCESS[process] = TEMPS_PROCESS[process.split(" : ")[0]]
+    gate_secteurs = ["A", "B", "C", "D", "E/F"]
+    graph_names["Gate"] += ["Gate : " + secteur for secteur in gate_secteurs]
+    graph_names["Check-in"].sort()
+    graph_names_list = [val for value in graph_names.values() for val in value]
 
-        max_planning, _ = load_data("MaxPlanning", "Capacite/Aeroport")
-        max_plan_ci = max_planning["Check-in"]
-        for zone in graph_names["Check-in"]:
-            max_planning[zone] = max_plan_ci
+    st.write(f"✅ graph_names_list créé avec {len(graph_names_list)} éléments")
 
-        LOSduree, _ = load_data("ValeursCritiquesDuree", "LevelOfService")
-        LOSsurface, _ = load_data("ValeursCritiquesSurface", "LevelOfService")
-        SurfaceQueue, _ = load_data("CapaciteQueue", "Capacite/Aeroport")
-        PISTE_THRESHOLDS, _ = load_data("CapacitePiste", "Capacite/Aeroport")
-        GATE_THRESHOLDS, _ = load_data("CapaciteGate", "Capacite/Aeroport")
+    TEMPS_PROCESS, _ = load_data("TempsProcess", "Capacite/TempsProcess")
+    process_present = list(TEMPS_PROCESS.keys())
+    for process in graph_names["Check-in"] + graph_names["Sûreté"] + graph_names["Douane"]:
+        if process not in process_present:
+            TEMPS_PROCESS[process] = TEMPS_PROCESS[process.split(" : ")[0]]
 
-        stand_ouv, _ = load_data("StandDispo", "Capacite/Aeroport")
-        standTot = sum(stand_ouv.values()) + stand_ouv["Dv"] + stand_ouv["Ev"]
-        standC = stand_ouv["Cf"] + 2 * stand_ouv["Dv"] + 2 * stand_ouv["Ev"]
-        standD = stand_ouv["Df"] + stand_ouv["Dv"]
-        standE = stand_ouv["Ef"] + stand_ouv["Ev"]
-        STAND_THRESHOLDS = {
-            "Stand": [standTot * 0.6, standTot],
-            "Stand : C": [standC * 0.6, standC],
-            "Stand : D": [standD * 0.8, standD],
-            "Stand : E": [standE * 0.6, standE]
-        }
+    max_planning, _ = load_data("MaxPlanning", "Capacite/Aeroport")
+    max_plan_ci = max_planning["Check-in"]
+    for zone in graph_names["Check-in"]:
+        max_planning[zone] = max_plan_ci
 
-        SURETE_THRESHOLDS = {processeur: LOSduree["Sûreté"] for processeur in graph_names["Sûreté"]}
-        CHECKIN_THRESHOLDS = {processeur: LOSduree["Check-in"] for processeur in graph_names["Check-in"]}
-        DOUANE_THRESHOLDS = {processeur: LOSduree["Douane"] for processeur in graph_names["Douane"]}
+    LOSduree, _ = load_data("ValeursCritiquesDuree", "LevelOfService")
+    LOSsurface, _ = load_data("ValeursCritiquesSurface", "LevelOfService")
+    SurfaceQueue, _ = load_data("CapaciteQueue", "Capacite/Aeroport")
+    PISTE_THRESHOLDS, _ = load_data("CapacitePiste", "Capacite/Aeroport")
+    GATE_THRESHOLDS, _ = load_data("CapaciteGate", "Capacite/Aeroport")
 
-        Thresholds = {}
-        Thresholds.update(PISTE_THRESHOLDS)
-        Thresholds.update(STAND_THRESHOLDS)
-        Thresholds.update(SURETE_THRESHOLDS)
-        Thresholds.update(CHECKIN_THRESHOLDS)
-        Thresholds.update(DOUANE_THRESHOLDS)
-        Thresholds.update(GATE_THRESHOLDS)
+    stand_ouv, _ = load_data("StandDispo", "Capacite/Aeroport")
+    standTot = sum(stand_ouv.values()) + stand_ouv["Dv"] + stand_ouv["Ev"]
+    standC = stand_ouv["Cf"] + 2 * stand_ouv["Dv"] + 2 * stand_ouv["Ev"]
+    standD = stand_ouv["Df"] + stand_ouv["Dv"]
+    standE = stand_ouv["Ef"] + stand_ouv["Ev"]
+    STAND_THRESHOLDS = {
+        "Stand": [standTot * 0.6, standTot],
+        "Stand : C": [standC * 0.6, standC],
+        "Stand : D": [standD * 0.8, standD],
+        "Stand : E": [standE * 0.6, standE]
+    }
 
-        Thresholds_perso = copy.deepcopy(Thresholds)
-        Thresholds_dict = {"reel": Thresholds, "ideal": Thresholds, "perso": Thresholds_perso}
+    SURETE_THRESHOLDS = {processeur: LOSduree["Sûreté"] for processeur in graph_names["Sûreté"]}
+    CHECKIN_THRESHOLDS = {processeur: LOSduree["Check-in"] for processeur in graph_names["Check-in"]}
+    DOUANE_THRESHOLDS = {processeur: LOSduree["Douane"] for processeur in graph_names["Douane"]}
 
-        data_stand_forecast, dates_in_filename_stand_forecast = load_data("ForecastStandUtilisation", "Demande")
-        data_stand_schedule, dates_in_filename_stand_schedule = load_data("ScheduleStandUtilisation", "Demande")
-        data_piste_forecast, dates_in_filename_piste_forecast = load_data("ForecastPisteUtilisation", "Demande")
-        data_piste_schedule, dates_in_filename_piste_schedule = load_data("SchedulePisteUtilisation", "Demande")
-        data_surete, dates_in_filename_surete = load_data("SUPForecastSurete", "Demande")
-        planning_surete_reel, dates_in_filename_planning_surete_reel = load_data("PlanningSurete", "Capacite/Planning")
-        planning_surete_ideal, dates_in_filename_planning_surete_ideal = load_data("PlanningSureteIdeal", "Capacite/Planning")
-        data_checkin, dates_in_filename_checkin = load_data("SUPForecastCheckIn", "Demande")
-        planning_checkin_reel, dates_in_filename_planning_checkin = load_data("PlanningCheckIn", "Capacite/Planning")
-        data_douane, dates_in_filename_douane = load_data("SUPForecastDouane", "Demande")
-        planning_douane_reel, dates_in_filename_planning_douane_reel = load_data("PlanningDouane", "Capacite/Planning")
-        planning_douane_ideal, dates_in_filename_planning_douane_ideal = load_data("PlanningDouaneIdeal", "Capacite/Planning")
-        data_gate, dates_in_filename_gate = load_data("SUPForecastGate", "Demande")
-        embarquement_gate_forecast, dates_in_filename_embarquement_gate_forecast = load_data("ForecastGateEmbarquement", "Demande")
-        embarquement_gate_schedule, dates_in_filename_embarquement_gate_schedule = load_data("ScheduleGateEmbarquement", "Demande")
+    Thresholds = {}
+    Thresholds.update(PISTE_THRESHOLDS)
+    Thresholds.update(STAND_THRESHOLDS)
+    Thresholds.update(SURETE_THRESHOLDS)
+    Thresholds.update(CHECKIN_THRESHOLDS)
+    Thresholds.update(DOUANE_THRESHOLDS)
+    Thresholds.update(GATE_THRESHOLDS)
 
-        planning_checkin_ideal = copy.deepcopy(planning_checkin_reel)
-        planning_checkin_perso = copy.deepcopy(planning_checkin_reel)
-        planning_surete_perso = copy.deepcopy(planning_surete_ideal)
-        planning_douane_perso = copy.deepcopy(planning_douane_ideal)
+    Thresholds_perso = copy.deepcopy(Thresholds)
+    Thresholds_dict = {"reel": Thresholds, "ideal": Thresholds, "perso": Thresholds_perso}
 
-        start_date = dates_in_filename_surete[0]
-        end_date = dates_in_filename_surete[1]
-        start_month_date = datetime.date(start_date.year, start_date.month, 1)
+    data_stand_forecast, dates_in_filename_stand_forecast = load_data("ForecastStandUtilisation", "Demande")
+    data_stand_schedule, dates_in_filename_stand_schedule = load_data("ScheduleStandUtilisation", "Demande")
+    data_piste_forecast, dates_in_filename_piste_forecast = load_data("ForecastPisteUtilisation", "Demande")
+    data_piste_schedule, dates_in_filename_piste_schedule = load_data("SchedulePisteUtilisation", "Demande")
+    data_surete, dates_in_filename_surete = load_data("SUPForecastSurete", "Demande")
+    planning_surete_reel, dates_in_filename_planning_surete_reel = load_data("PlanningSurete", "Capacite/Planning")
+    planning_surete_ideal, dates_in_filename_planning_surete_ideal = load_data("PlanningSureteIdeal", "Capacite/Planning")
+    data_checkin, dates_in_filename_checkin = load_data("SUPForecastCheckIn", "Demande")
+    planning_checkin_reel, dates_in_filename_planning_checkin = load_data("PlanningCheckIn", "Capacite/Planning")
+    data_douane, dates_in_filename_douane = load_data("SUPForecastDouane", "Demande")
+    planning_douane_reel, dates_in_filename_planning_douane_reel = load_data("PlanningDouane", "Capacite/Planning")
+    planning_douane_ideal, dates_in_filename_planning_douane_ideal = load_data("PlanningDouaneIdeal", "Capacite/Planning")
+    data_gate, dates_in_filename_gate = load_data("SUPForecastGate", "Demande")
+    embarquement_gate_forecast, dates_in_filename_embarquement_gate_forecast = load_data("ForecastGateEmbarquement", "Demande")
+    embarquement_gate_schedule, dates_in_filename_embarquement_gate_schedule = load_data("ScheduleGateEmbarquement", "Demande")
 
+    planning_checkin_ideal = copy.deepcopy(planning_checkin_reel)
+    planning_checkin_perso = copy.deepcopy(planning_checkin_reel)
+    planning_surete_perso = copy.deepcopy(planning_surete_ideal)
+    planning_douane_perso = copy.deepcopy(planning_douane_ideal)
+
+    start_date = dates_in_filename_surete[0]
+    end_date = dates_in_filename_surete[1]
+    start_month_date = datetime.date(start_date.year, start_date.month, 1)
+
+    st.write("✅ Toutes les données ont été chargées avec succès!")
     return True
 
 # Interface principale
