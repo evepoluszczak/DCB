@@ -60,6 +60,13 @@ DATA_FOLDER = get_data_folder()
 FRENCH_MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 FRENCH_JOURS = ["", "lundis", "mardis", "mercredis", "jeudis", "vendredis", "samedis", "dimanches"]
 
+# Initialisation des variables globales (seront définies par load_all_data)
+graph_names = {}
+gate_secteurs = []
+graph_names_list = []
+start_date = None
+end_date = None
+
 def jours(weekday):
     j = weekday.replace(".", "")
     nb_j = len(j)
@@ -247,6 +254,13 @@ def comp_color(a, b):
 
 def compute_colors(sx="forecast", rip="ideal"):
     colors = {}
+
+    # Vérification que les données nécessaires sont chargées
+    try:
+        if not data_surete or not data_checkin or not data_douane:
+            return colors
+    except NameError:
+        return colors
 
     # Calcul des couleurs pour chaque processeur et chaque date
     planning_dict = {
@@ -592,6 +606,12 @@ def main():
             st.exception(e)
             return
 
+    # Vérification que les données sont bien chargées
+    if not st.session_state.data_loaded or len(graph_names_list) == 0:
+        st.error("❌ Les données n'ont pas été chargées correctement.")
+        st.info("Veuillez vérifier que tous les fichiers de données sont présents et valides.")
+        return
+
     # En-tête
     col1, col2, col3 = st.columns([1, 3, 1])
     with col1:
@@ -667,6 +687,10 @@ def main():
 
 def display_calendar(colors):
     """Affiche la vue calendrier"""
+    if start_date is None or end_date is None:
+        st.error("Les dates ne sont pas définies. Impossible d'afficher le calendrier.")
+        return
+
     st.subheader(f"Période: {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}")
 
     # Bouton pour personnaliser
