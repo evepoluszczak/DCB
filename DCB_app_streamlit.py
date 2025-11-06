@@ -30,12 +30,31 @@ def get_base_path():
         return sys._MEIPASS
     return os.path.dirname(os.path.abspath(__file__))
 
-ASSETS_FOLDER = os.path.join(get_base_path(), 'assets')
+def get_data_folder():
+    """Détecte automatiquement le dossier de données disponible"""
+    base_path = get_base_path()
 
-if post_ops:
-    DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source PostOps"
-else:
-    DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source"
+    # Liste des chemins possibles par ordre de priorité
+    possible_paths = [
+        # Chemins locaux (pour développement et Streamlit Cloud)
+        os.path.join(base_path, "Data Source"),
+        os.path.join(base_path, "DataSource"),
+        os.path.join(base_path, "data"),
+        os.path.join(base_path, "Data"),
+        # Chemins réseau (pour production sur serveur Windows)
+        "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source PostOps" if post_ops else "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source",
+    ]
+
+    # Chercher le premier chemin qui existe
+    for path in possible_paths:
+        if os.path.exists(path) and os.path.isdir(path):
+            return path
+
+    # Aucun chemin trouvé
+    return None
+
+ASSETS_FOLDER = os.path.join(get_base_path(), 'assets')
+DATA_FOLDER = get_data_folder()
 
 # French months
 FRENCH_MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -66,9 +85,25 @@ def extract_dates_from_filename(filename):
 
 # Read JSON file and parse data
 @st.cache_data
-def load_data(name, sous_dossier):
+def load_data(name, sous_dossier, data_folder_override=None):
+    # Utiliser le dossier spécifié ou le dossier par défaut
+    folder_to_use = data_folder_override if data_folder_override else DATA_FOLDER
+
+    if folder_to_use is None:
+        raise FileNotFoundError(
+            f"Aucun dossier de données trouvé. Veuillez créer un dossier 'Data Source' "
+            f"dans le répertoire de l'application ou configurer le chemin dans les paramètres."
+        )
+
     # Parcourir les fichiers du dossier Actuel
-    dossier = os.path.join(DATA_FOLDER, sous_dossier, "Actuel")
+    dossier = os.path.join(folder_to_use, sous_dossier, "Actuel")
+
+    if not os.path.exists(dossier):
+        raise FileNotFoundError(
+            f"Le dossier {dossier} n'existe pas. "
+            f"Structure attendue : {folder_to_use}/{sous_dossier}/Actuel/"
+        )
+
     file_name = None
     for fichier in os.listdir(dossier):
         if name in fichier:
@@ -76,8 +111,10 @@ def load_data(name, sous_dossier):
             break
 
     if file_name is None:
-        st.error(f"Fichier {name} introuvable dans {dossier}")
-        return None, 0
+        raise FileNotFoundError(
+            f"Fichier contenant '{name}' introuvable dans {dossier}. "
+            f"Fichiers disponibles : {', '.join(os.listdir(dossier))}"
+        )
 
     if sous_dossier in ["Capacite/Aeroport", "LevelOfService", "Capacite/TempsProcess", "Annexe"]:
         dates = 0
@@ -485,9 +522,75 @@ def load_all_data():
 def main():
     init_session_state()
 
+    # Vérification de l'existence du dossier de données
+    if DATA_FOLDER is None:
+        st.error("❌ Aucun dossier de données trouvé!")
+        st.markdown("""
+        ### Configuration requise
+
+        L'application ne trouve pas le dossier contenant les données DCB.
+
+        **Options :**
+
+        1. **Pour le développement local :** Créez un dossier nommé `Data Source` dans le répertoire de l'application
+
+        2. **Pour Streamlit Cloud :** Vous devez :
+           - Créer un dossier `Data Source` à la racine du repository
+           - Y placer tous les fichiers de données générés par `Traitement_donnee.py`
+           - Respecter la structure de dossiers suivante :
+
+        ```
+        Data Source/
+        ├── Demande/
+        │   └── Actuel/
+        │       ├── ForecastPisteUtilisation_*.json
+        │       ├── SUPForecastSurete_*.json
+        │       └── ... (autres fichiers)
+        ├── Capacite/
+        │   ├── Aeroport/
+        │   │   └── Actuel/
+        │   ├── Planning/
+        │   │   └── Actuel/
+        │   └── TempsProcess/
+        │       └── Actuel/
+        ├── LevelOfService/
+        │   └── Actuel/
+        └── Annexe/
+            └── Actuel/
+        ```
+
+        3. **Générer les données :**
+           ```bash
+           cd TraitementDonnee/Code
+           python Traitement_donnee.py
+           ```
+
+        **Répertoire actuel de l'application :** `{get_base_path()}`
+        """)
+        return
+
     # Chargement des données
     if not st.session_state.data_loaded:
-        st.session_state.data_loaded = load_all_data()
+        try:
+            with st.spinner("🔄 Chargement des données en cours..."):
+                st.session_state.data_loaded = load_all_data()
+        except FileNotFoundError as e:
+            st.error(f"❌ Erreur lors du chargement des données : {str(e)}")
+            st.info(f"📁 Dossier de données détecté : `{DATA_FOLDER}`")
+            st.markdown("""
+            ### Vérifications à faire :
+
+            1. Le dossier existe-t-il vraiment ?
+            2. La structure des sous-dossiers est-elle correcte ?
+            3. Les fichiers JSON ont-ils été générés par `Traitement_donnee.py` ?
+
+            Consultez le README_STREAMLIT.md pour plus de détails.
+            """)
+            return
+        except Exception as e:
+            st.error(f"❌ Erreur inattendue : {str(e)}")
+            st.exception(e)
+            return
 
     # En-tête
     col1, col2, col3 = st.columns([1, 3, 1])
