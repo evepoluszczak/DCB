@@ -208,6 +208,10 @@ def calcul_file_attente(data, planning):
     return result
 
 def value_to_color(value, var, toggle_rip):
+    # Vérifier que les seuils existent pour cette variable
+    if toggle_rip not in Thresholds_dict or var not in Thresholds_dict[toggle_rip]:
+        return "green"  # Valeur par défaut si les seuils ne sont pas définis
+
     if var in ["Piste", "Stand", "Stand : C", "Stand : D", "Stand : E", "Gate", "Gate : A", "Gate : B", "Gate : C", "Gate : D", "Gate : E/F"]:
         if value < Thresholds_dict[toggle_rip][var][0]:
             return "green"
@@ -293,8 +297,13 @@ def compute_colors(sx="forecast", rip="ideal"):
                 queue = calcul_queue(demande, capacite)
                 attente = calcul_attente(queue, capacite)
                 attente_moyenne = calcul_attente_moyenne(attente)
-                KPIs = calcul_KPI(attente, capacite, Thresholds_dict[rip][processeur])
-                colors[date_str][processeur] = KPI_to_color(KPIs)
+                # Vérifier que les seuils existent pour ce processeur
+                if processeur in Thresholds_dict.get(rip, {}):
+                    KPIs = calcul_KPI(attente, capacite, Thresholds_dict[rip][processeur])
+                    colors[date_str][processeur] = KPI_to_color(KPIs)
+                else:
+                    # Utiliser des seuils par défaut si non définis
+                    colors[date_str][processeur] = "green"
 
         # Check-in
         for processeur in data_checkin.keys():
@@ -304,8 +313,13 @@ def compute_colors(sx="forecast", rip="ideal"):
                 queue = calcul_queue(demande, capacite)
                 attente = calcul_attente(queue, capacite)
                 attente_moyenne = calcul_attente_moyenne(attente)
-                KPIs = calcul_KPI(attente, capacite, Thresholds_dict[rip][processeur])
-                colors[date_str][processeur] = KPI_to_color(KPIs)
+                # Vérifier que les seuils existent pour ce processeur
+                if processeur in Thresholds_dict.get(rip, {}):
+                    KPIs = calcul_KPI(attente, capacite, Thresholds_dict[rip][processeur])
+                    colors[date_str][processeur] = KPI_to_color(KPIs)
+                else:
+                    # Utiliser des seuils par défaut si non définis
+                    colors[date_str][processeur] = "green"
 
         # Douane
         for processeur in data_douane.keys():
@@ -315,8 +329,13 @@ def compute_colors(sx="forecast", rip="ideal"):
                 queue = calcul_queue(demande, capacite)
                 attente = calcul_attente(queue, capacite)
                 attente_moyenne = calcul_attente_moyenne(attente)
-                KPIs = calcul_KPI(attente, capacite, Thresholds_dict[rip][processeur])
-                colors[date_str][processeur] = KPI_to_color(KPIs)
+                # Vérifier que les seuils existent pour ce processeur
+                if processeur in Thresholds_dict.get(rip, {}):
+                    KPIs = calcul_KPI(attente, capacite, Thresholds_dict[rip][processeur])
+                    colors[date_str][processeur] = KPI_to_color(KPIs)
+                else:
+                    # Utiliser des seuils par défaut si non définis
+                    colors[date_str][processeur] = "green"
 
         # Piste et Stand
         data_dict = {"forecast": (data_piste_forecast, data_stand_forecast), "schedule": (data_piste_schedule, data_stand_schedule)}
