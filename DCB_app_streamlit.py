@@ -425,7 +425,7 @@ def init_session_state():
         st.session_state.data_loaded = False
 
 # Chargement des données
-@st.cache_resource
+# Note: Pas de cache ici car on modifie des variables globales
 def load_all_data():
     global graph_names, gate_secteurs, graph_names_list
     global TEMPS_PROCESS, process_present
@@ -583,11 +583,16 @@ def main():
         """)
         return
 
-    # Chargement des données
+    # Chargement des données (une seule fois)
     if not st.session_state.data_loaded:
         try:
             with st.spinner("🔄 Chargement des données en cours..."):
-                st.session_state.data_loaded = load_all_data()
+                success = load_all_data()
+                if success:
+                    st.session_state.data_loaded = True
+                else:
+                    st.error("❌ Le chargement des données a échoué.")
+                    return
         except FileNotFoundError as e:
             st.error(f"❌ Erreur lors du chargement des données : {str(e)}")
             st.info(f"📁 Dossier de données détecté : `{DATA_FOLDER}`")
@@ -606,10 +611,25 @@ def main():
             st.exception(e)
             return
 
-    # Vérification que les données sont bien chargées
-    if not st.session_state.data_loaded or len(graph_names_list) == 0:
-        st.error("❌ Les données n'ont pas été chargées correctement.")
-        st.info("Veuillez vérifier que tous les fichiers de données sont présents et valides.")
+    # Vérifier que graph_names_list a bien été initialisé après chargement
+    if len(graph_names_list) == 0:
+        st.error("❌ Les données n'ont pas été chargées correctement (graph_names_list est vide).")
+        st.info("Cela peut indiquer un problème avec les fichiers GraphNames.json ou la structure des données.")
+
+        # Informations de débogage
+        with st.expander("🔍 Informations de débogage"):
+            st.write("**État du chargement :**")
+            st.write(f"- data_loaded dans session_state : {st.session_state.data_loaded}")
+            st.write(f"- Longueur de graph_names_list : {len(graph_names_list)}")
+            st.write(f"- Type de graph_names_list : {type(graph_names_list)}")
+            st.write(f"- Contenu de graph_names : {graph_names}")
+            st.write(f"- Dossier de données : {DATA_FOLDER}")
+
+        # Bouton pour réessayer
+        if st.button("🔄 Réessayer le chargement"):
+            st.session_state.data_loaded = False
+            st.cache_data.clear()
+            st.rerun()
         return
 
     # En-tête
