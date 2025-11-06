@@ -54,9 +54,35 @@ def run_traitement(input_folder, output_folder=None, progress_callback=None):
                     log(f"⚠️  L'export WEBI {file} n'a pas fonctionné aujourd'hui. Version du {date}.")
 
         # Ajouter le dossier Code au path si nécessaire
-        code_folder = Path(__file__).parent
+        code_folder = Path(__file__).parent.resolve()
+        log(f"📂 Dossier des modules : {code_folder}")
+
+        # S'assurer que le dossier est dans sys.path
         if str(code_folder) not in sys.path:
             sys.path.insert(0, str(code_folder))
+            log(f"✅ Ajouté au sys.path : {code_folder}")
+
+        # Vérifier que les fichiers modules existent
+        required_modules = [
+            'Avion_LinkHisto.py', 'Avion_LinkFutur.py', 'Avion_ExpectedTime.py',
+            'Avion_Mouvements.py', 'Pax_Embarquement.py', 'Pax_ApplicationSUP.py',
+            'Pax_PlanningIdealDouane.py', 'Pax_PlanningIdealSurete.py',
+            'Pax_SUPjson.py', 'PBI_CalculPowerBI.py', 'Pax_PlaningSurete.py'
+        ]
+
+        missing_modules = []
+        for module_file in required_modules:
+            if not (code_folder / module_file).exists():
+                missing_modules.append(module_file)
+
+        if missing_modules:
+            log(f"⚠️  Modules manquants : {', '.join(missing_modules)}")
+            log(f"📁 Contenu du dossier : {list(os.listdir(code_folder))}")
+            return {
+                'success': False,
+                'message': f"Modules manquants dans {code_folder}: {', '.join(missing_modules)}",
+                'duration': 0
+            }
 
         # Imports des modules de traitement
         log("\n📦 Chargement des modules de traitement...")
@@ -72,10 +98,14 @@ def run_traitement(input_folder, output_folder=None, progress_callback=None):
             from Pax_SUPjson import SUPjson
             from PBI_CalculPowerBI import CalculPBI
             from Pax_PlaningSurete import PlanningSurete
+            log("✅ Tous les modules ont été importés avec succès")
         except ImportError as e:
+            log(f"❌ Erreur d'import : {str(e)}")
+            log(f"📁 sys.path actuel : {sys.path[:3]}...")
+            log(f"📁 Fichiers dans {code_folder} : {list(os.listdir(code_folder))}")
             return {
                 'success': False,
-                'message': f"Erreur d'import des modules : {str(e)}",
+                'message': f"Erreur d'import des modules : {str(e)}\nDossier modules : {code_folder}",
                 'duration': 0
             }
 
