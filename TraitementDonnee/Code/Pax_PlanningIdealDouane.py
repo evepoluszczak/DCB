@@ -144,7 +144,7 @@ def PlanningIdealDouane(data):
                             
         data[f"Planning {zone} lissé"] = smoothed
 
-    data.to_csv("D:/users/bastien.schneuwly/workfolders/documents/Stage_Bastien/cpdouane.csv",index=False)
+    # data.to_csv("D:/users/bastien.schneuwly/workfolders/documents/Stage_Bastien/cpdouane.csv",index=False)
 
     dates = data["Date et heure"].dt.date.drop_duplicates()
     debut = dates.min().strftime(format="%Y%m%d")
@@ -165,4 +165,5 @@ def PlanningIdealDouane(data):
     file = f"{mnt}{nom}{debut}-{fin}.json"
 
     with open(os.path.join(dossier,"Actuel",file),"w") as f:
+
         json.dump(planning_surete,f)
