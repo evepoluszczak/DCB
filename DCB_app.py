@@ -1,6 +1,7 @@
 post_ops = False # True pour voir des prévisions faites dans le passé, NE PAS TOUCHER
 import sys
 
+# --- GESTION DU CHEMIN POUR PYTHON PORTABLE ---
 dossier_python = ""
 for dossier in sys.path:
     if dossier[-15:] =="Python-Portable":
@@ -19,26 +20,51 @@ import os
 import plotly.graph_objs as go
 import re
 from math import ceil
-#import subprocess
-#import time
-#import tempfile
-#import psutil
 from dash import ClientsideFunction
 import copy
+from pathlib import Path
 
-# Configuration
+# --- GESTION DYNAMIQUE DES IMPORTS ET CHEMINS ---
 
+# 1. Définir get_base_path() EN PREMIER pour trouver la racine de l'application
 def get_base_path():
     if getattr(sys, 'frozen', False):  # Exécutable PyInstaller
-        return sys._MEIPASS
-    return os.path.dirname(os.path.abspath(__file__))
+        return Path(sys._MEIPASS)
+    # os.path.abspath(__file__) donne le chemin de ce script (DCB_Standalone_App.py)
+    # .parent remonte au dossier racine (.../DCB_Standalone_App)
+    return Path(os.path.dirname(os.path.abspath(__file__)))
 
-ASSETS_FOLDER = os.path.join(get_base_path(), 'assets')
+# 2. Définir le chemin vers le dossier 'Code' où se trouvent les modules
+CHEMIN_RACINE_APP = get_base_path()
+CHEMIN_DU_CODE = CHEMIN_RACINE_APP / "TraitementDonnee" / "Code"
+
+# 3. Ajouter ce dossier au sys.path AVANT d'essayer d'importer depuis
+if CHEMIN_DU_CODE.exists():
+    sys.path.append(str(CHEMIN_DU_CODE))
+else:
+    print(f"ERREUR CRITIQUE: Le dossier 'TraitementDonnee/Code' est introuvable à {CHEMIN_DU_CODE}")
+    print("L'application ne peut pas démarrer sans ses modules.")
+    input("Appuyez sur Entrée pour fermer...")
+    sys.exit(1) # Arrêter le script
+
+# 4. MAINTENANT, l'importation de chemin_dossier fonctionnera
+try:
+    from chemin_dossier import CHEMIN_DATA_SOURCE
+except ImportError:
+    print(f"ERREUR CRITIQUE: 'chemin_dossier.py' est introuvable dans {CHEMIN_DU_CODE}.")
+    print("Vérifiez que le fichier existe et que le chemin est correct.")
+    input("Appuyez sur Entrée pour fermer...")
+    sys.exit(1)
+
+# --- CONFIGURATION ---
+
+ASSETS_FOLDER = CHEMIN_RACINE_APP / 'assets' # Utilise la racine déjà trouvée
 
 if post_ops:
-    DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source PostOps"
+    # On suppose que "Data Source PostOps" est au même niveau que "Data Source"
+    DATA_FOLDER = CHEMIN_DATA_SOURCE.parent / "Data Source PostOps"
 else:
-    DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source"
+    DATA_FOLDER = CHEMIN_DATA_SOURCE # <-- Le chemin dynamique est maintenant défini
 
 # French months
 FRENCH_MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -70,47 +96,153 @@ def extract_dates_from_filename(filename):
         if len(date) == 8:
             date_list.append(datetime.date(int(date[:4]), int(date[4:6]), int(date[6:8])))
     if len(date_list) != 2:
-        raise ValueError(f"Erreur: Impossible d'extraire deux dates du fichier {filename}. Vérifiez le nom du fichier.")
+        # CORRECTION : Ne plante pas, renvoie None
+        print(f"AVERTISSEMENT: Impossible d'extraire deux dates de {filename}. Fichier peut-être ignoré.")
+        return None
     return date_list
 
 # Read JSON file and parse data
 def load_data(name, sous_dossier):
-    # Parcourir les fichiers du dossier Actuel
-    dossier = os.path.join(DATA_FOLDER,sous_dossier,"Actuel")
-    for fichier in os.listdir(dossier):
-        if name in fichier:
-            file_name = fichier
-            break
+    dossier_path = DATA_FOLDER / sous_dossier / "Actuel"
+    
+    # Gère si le dossier n'existe pas
+    if not dossier_path.exists():
+        print(f"ERREUR CRITIQUE: Dossier 'Actuel' non trouvé : {dossier_path}")
+        # Retourne le type vide attendu (None et 0 ou None et None)
+        return None, (0 if sous_dossier in ["Capacite/Aeroport", "LevelOfService", "Capacite/TempsProcess", "Annexe"] else None)
+
+    target_file = None
+    file_name_for_dates = ""
+
+    try:
+        for fichier_path in dossier_path.iterdir():
+            if name in fichier_path.name:
+                target_file = fichier_path
+                file_name_for_dates = fichier_path.name
+                break
+    except FileNotFoundError:
+         print(f"ERREUR CRITIQUE: Impossible d'accéder au dossier : {dossier_path}")
+         return None, (0 if sous_dossier in ["Capacite/Aeroport", "LevelOfService", "Capacite/TempsProcess", "Annexe"] else None)
+    
+    if not target_file:
+        print(f"ERREUR CRITIQUE: Aucun fichier contenant '{name}' trouvé dans '{dossier_path}'")
+        return None, (0 if sous_dossier in ["Capacite/Aeroport", "LevelOfService", "Capacite/TempsProcess", "Annexe"] else None)
+
+    # Gestion des dates
     if sous_dossier in ["Capacite/Aeroport", "LevelOfService", "Capacite/TempsProcess", "Annexe"]:
         dates = 0
     else:
-        dates = extract_dates_from_filename(file_name)
-    with open(os.path.join(dossier,file_name), 'r', encoding='utf-8') as file:
-        return json.load(file), dates
+        dates = extract_dates_from_filename(file_name_for_dates)
+        if dates is None: # Si l'extraction échoue
+             return None, None
+    
+    try:
+        with open(target_file, 'r', encoding='utf-8') as file:
+            return json.load(file), dates
+    except json.JSONDecodeError:
+        print(f"ERREUR CRITIQUE: Le fichier '{target_file.name}' est corrompu (JSON invalide).")
+        return None, dates
+    except Exception as e:
+        print(f"ERREUR CRITIQUE: Impossible de lire le fichier '{target_file.name}'. Erreur: {e}")
+        return None, dates
 
-graph_names, _ = load_data("GraphNames","Annexe")
+# --- VÉRIFICATION DU CHARGEMENT DES DONNÉES ---
+print("Chargement des fichiers de données...")
+loaded_data = {
+    "GraphNames": load_data("GraphNames", "Annexe"),
+    "TEMPS_PROCESS": load_data("TempsProcess", "Capacite/TempsProcess"),
+    "max_planning": load_data("MaxPlanning", "Capacite/Aeroport"),
+    "LOSduree": load_data("ValeursCritiquesDuree", "LevelOfService"),
+    "LOSsurface": load_data("ValeursCritiquesSurface", "LevelOfService"),
+    "SurfaceQueue": load_data("CapaciteQueue", "Capacite/Aeroport"),
+    "PISTE_THRESHOLDS": load_data("CapacitePiste", "Capacite/Aeroport"),
+    "GATE_THRESHOLDS": load_data("CapaciteGate", "Capacite/Aeroport"),
+    "stand_ouv": load_data("StandDispo", "Capacite/Aeroport"),
+    "data_stand_forecast": load_data("ForecastStandUtilisation", "Demande"),
+    "data_stand_schedule": load_data("ScheduleStandUtilisation", "Demande"),
+    "data_piste_forecast": load_data("ForecastPisteUtilisation", "Demande"),
+    "data_piste_schedule": load_data("SchedulePisteUtilisation", "Demande"),
+    "data_surete": load_data("SUPForecastSurete", "Demande"),
+    "planning_surete_reel": load_data("PlanningSurete", "Capacite/Planning"),
+    "planning_surete_ideal": load_data("PlanningSureteIdeal", "Capacite/Planning"),
+    "data_checkin": load_data("SUPForecastCheckIn", "Demande"),
+    "planning_checkin_reel": load_data("PlanningCheckIn", "Capacite/Planning"),
+    "data_douane": load_data("SUPForecastDouane", "Demande"),
+    "planning_douane_reel": load_data("PlanningDouane", "Capacite/Planning"),
+    "planning_douane_ideal": load_data("PlanningDouaneIdeal", "Capacite/Planning"),
+    "data_gate": load_data("SUPForecastGate", "Demande"),
+    "embarquement_gate_forecast": load_data("ForecastGateEmbarquement", "Demande"),
+    "embarquement_gate_schedule": load_data("ScheduleGateEmbarquement", "Demande")
+}
+
+# Vérification des fichiers critiques
+critical_files_missing = False
+for name, (data, dates) in loaded_data.items():
+    # Vérifie si les données sont nulles
+    is_data_missing = (data is None)
+    
+    # Vérifie si les dates sont nulles (MAIS seulement pour les fichiers qui sont censés en avoir)
+    is_date_missing = (
+        dates is None 
+        and name not in ["GraphNames", "TEMPS_PROCESS", "max_planning", "LOSduree", "LOSsurface", "SurfaceQueue", "PISTE_THRESHOLDS", "GATE_THRESHOLDS", "stand_ouv"]
+    )
+    
+    if is_data_missing or is_date_missing:
+        print(f"ERREUR: Fichier ou données critiques '{name}' n'ont pas pu être chargés (Data: {data is not None}, Dates: {dates is not None}).")
+        critical_files_missing = True
+
+if critical_files_missing:
+    print("\nUn ou plusieurs fichiers de données critiques sont manquants. L'application va s'arrêter.")
+    # Permet à l'utilisateur de voir l'erreur avant de fermer
+    input("Appuyez sur Entrée pour fermer...")
+    sys.exit(1) # Arrête l'application
+
+print("Données chargées avec succès.")
+
+# Dépaquetage des données maintenant qu'on sait qu'elles existent
+graph_names, _ = loaded_data["GraphNames"]
+TEMPS_PROCESS, _ = loaded_data["TEMPS_PROCESS"]
+max_planning, _ = loaded_data["max_planning"]
+LOSduree, _ = loaded_data["LOSduree"]
+LOSsurface, _ = loaded_data["LOSsurface"]
+SurfaceQueue, _ = loaded_data["SurfaceQueue"]
+PISTE_THRESHOLDS, _ = loaded_data["PISTE_THRESHOLDS"]
+GATE_THRESHOLDS, _ = loaded_data["GATE_THRESHOLDS"]
+stand_ouv, _ = loaded_data["stand_ouv"]
+
+data_stand_forecast, dates_in_filename_stand_forecast = loaded_data["data_stand_forecast"]
+data_stand_schedule, dates_in_filename_stand_schedule = loaded_data["data_stand_schedule"]
+data_piste_forecast, dates_in_filename_piste_forecast = loaded_data["data_piste_forecast"]
+data_piste_schedule, dates_in_filename_piste_schedule = loaded_data["data_piste_schedule"]
+data_surete, dates_in_filename_surete = loaded_data["data_surete"]
+planning_surete_reel, dates_in_filename_planning_surete_reel = loaded_data["planning_surete_reel"]
+planning_surete_ideal, dates_in_filename_planning_surete_ideal = loaded_data["planning_surete_ideal"]
+data_checkin, dates_in_filename_checkin = loaded_data["data_checkin"]
+planning_checkin_reel, dates_in_filename_planning_checkin = loaded_data["planning_checkin_reel"]
+data_douane, dates_in_filename_douane = loaded_data["data_douane"]
+planning_douane_reel, dates_in_filename_planning_douane_reel = loaded_data["planning_douane_reel"]
+planning_douane_ideal, dates_in_filename_planning_douane_ideal = loaded_data["planning_douane_ideal"]
+data_gate, dates_in_filename_gate = loaded_data["data_gate"]
+embarquement_gate_forecast, dates_in_filename_embarquement_gate_forecast = loaded_data["embarquement_gate_forecast"]
+embarquement_gate_schedule, dates_in_filename_embarquement_gate_schedule = loaded_data["embarquement_gate_schedule"]
+
+# --- Fin de la vérification ---
+
+
 gate_secteurs = ["A","B","C","D","E/F"]
 graph_names["Gate"] += ["Gate : " + secteur for secteur in gate_secteurs]
 graph_names["Check-in"].sort()
 graph_names_list = [val for value in graph_names.values() for val in value] 
 
-TEMPS_PROCESS, _ = load_data("TempsProcess", "Capacite/TempsProcess")
 process_present = list(TEMPS_PROCESS.keys())
 for process in graph_names["Check-in"] + graph_names["Sûreté"] + graph_names["Douane"]:
     if process not in process_present:
         TEMPS_PROCESS[process] = TEMPS_PROCESS[process.split(" : ")[0]]
 
-max_planning, _ = load_data("MaxPlanning", "Capacite/Aeroport")
 max_plan_ci = max_planning["Check-in"]
 for zone in graph_names["Check-in"]:
     max_planning[zone] = max_plan_ci
 
-LOSduree, _ = load_data("ValeursCritiquesDuree","LevelOfService")
-LOSsurface, _ = load_data("ValeursCritiquesSurface","LevelOfService")
-SurfaceQueue, _ = load_data("CapaciteQueue", "Capacite/Aeroport")
-PISTE_THRESHOLDS, _ = load_data("CapacitePiste", "Capacite/Aeroport")
-GATE_THRESHOLDS, _ = load_data("CapaciteGate", "Capacite/Aeroport")
-stand_ouv, _ = load_data("StandDispo", "Capacite/Aeroport")
 standTot = sum(stand_ouv.values()) + stand_ouv["Dv"] + stand_ouv["Ev"]
 standC = stand_ouv["Cf"] + 2*stand_ouv["Dv"] + 2*stand_ouv["Ev"]
 standD = stand_ouv["Df"] + stand_ouv["Dv"]
@@ -129,22 +261,6 @@ Thresholds.update(DOUANE_THRESHOLDS)
 Thresholds.update(GATE_THRESHOLDS)
 
 Thresholds_perso = copy.deepcopy(Thresholds)
-
-data_stand_forecast, dates_in_filename_stand_forecast = load_data("ForecastStandUtilisation","Demande")
-data_stand_schedule, dates_in_filename_stand_schedule = load_data("ScheduleStandUtilisation","Demande")
-data_piste_forecast, dates_in_filename_piste_forecast = load_data("ForecastPisteUtilisation","Demande")
-data_piste_schedule, dates_in_filename_piste_schedule = load_data("SchedulePisteUtilisation","Demande")
-data_surete, dates_in_filename_surete = load_data("SUPForecastSurete","Demande")
-planning_surete_reel, dates_in_filename_planning_surete_reel = load_data("PlanningSurete","Capacite/Planning")
-planning_surete_ideal, dates_in_filename_planning_surete_ideal = load_data("PlanningSureteIdeal","Capacite/Planning")
-data_checkin, dates_in_filename_checkin = load_data("SUPForecastCheckIn","Demande")
-planning_checkin_reel, dates_in_filename_planning_checkin = load_data("PlanningCheckIn","Capacite/Planning")
-data_douane, dates_in_filename_douane = load_data("SUPForecastDouane","Demande")
-planning_douane_reel, dates_in_filename_planning_douane_reel = load_data("PlanningDouane","Capacite/Planning")
-planning_douane_ideal, dates_in_filename_planning_douane_ideal = load_data("PlanningDouaneIdeal","Capacite/Planning")
-data_gate, dates_in_filename_gate = load_data("SUPForecastGate","Demande")
-embarquement_gate_forecast, dates_in_filename_embarquement_gate_forecast = load_data("ForecastGateEmbarquement","Demande")
-embarquement_gate_schedule, dates_in_filename_embarquement_gate_schedule = load_data("ScheduleGateEmbarquement","Demande")
 
 planning_checkin_ideal = copy.deepcopy(planning_checkin_reel)
 planning_checkin_perso = copy.deepcopy(planning_checkin_reel)
@@ -186,11 +302,22 @@ end_date = dates_in_filename_surete[1]
 start_month_date = datetime.date(start_date.year, start_date.month, 1)
 
 def sum_list(dict_of_list):
-    l = len(dict_of_list[list(dict_of_list.keys())[0]])
+    # Gère le cas où la liste est vide
+    if not dict_of_list:
+        return [0] * 288 # Retourne une liste de zéros de la bonne taille
+    
+    # Prend la longueur de la première liste (supposée non vide si dict_of_list n'est pas vide)
+    try:
+        l = len(dict_of_list[list(dict_of_list.keys())[0]])
+    except (IndexError, KeyError):
+        return [0] * 288 # Cas où le dictionnaire interne est vide
+
     s = [0]*l
     for ls in dict_of_list.values():
         if len(ls) != l:
-            raise ValueError("Les listes n'ont pas toutes la même longueur!")
+            # Ne plante pas, mais envoie un avertissement
+            print(f"Avertissement: Les listes n'ont pas toutes la même longueur! Attendu {l}, eu {len(ls)}")
+            continue
         for i in range(l):
             s[i] += ls[i]
     return s
@@ -249,15 +376,34 @@ def calcul_file_attente(data, planning):
     attente = {}
     attente_moyenne = {}
     KPI = {}
-    for date in data_surete.keys():
+    
+    # CORRECTION: Boucle sur 'data.keys()' (demande) 
+    for date in data.keys():
+        # CORRECTION : Ajout d'une vérification pour éviter le KeyError
+        # Si la date de la demande n'existe pas dans le planning, on l'ignore.
+        if date not in planning:
+            print(f"Avertissement (calcul_file_attente): Date {date} présente dans la demande mais absente du planning. Elle sera ignorée.")
+            continue # Passe à la date suivante
+
         capacite[date] = {}
         queue[date] = {}
         attente[date] = {}
         attente_moyenne[date] = {}
         KPI[date] = {}
         for zone in data[date].keys():
+            # CORRECTION : Vérifier aussi que la zone existe dans le planning pour cette date
+            if zone not in planning[date]:
+                print(f"Avertissement (calcul_file_attente): Zone {zone} présente dans la demande mais absente du planning pour le {date}.")
+                continue # Passe à la zone suivante
+            
             dem = data[date][zone]
-            plan = planning[date][zone]
+            plan = planning[date][zone] # Cette ligne est maintenant sécurisée
+
+            # CORRECTION : Vérifier que la zone existe dans TEMPS_PROCESS
+            if zone not in TEMPS_PROCESS:
+                print(f"Erreur (calcul_file_attente): Zone {zone} non trouvée dans TEMPS_PROCESS. Calcul impossible pour cette zone.")
+                continue # Passe à la zone suivante
+            
             cap = list_mult(plan,5/TEMPS_PROCESS[zone])
             capacite[date][zone] = cap.copy()
             q = calcul_queue(dem,cap)
@@ -266,7 +412,14 @@ def calcul_file_attente(data, planning):
             attente[date][zone] = att.copy()
             att_moy = calcul_attente_moyenne(att)
             attente_moyenne[date][zone] = att_moy.copy()
-            KPI[date][zone] = calcul_KPI(att_moy,plan,Thresholds[zone])
+
+            # CORRECTION : Vérifier que la zone existe dans Thresholds
+            if zone not in Thresholds:
+                print(f"Avertissement (calcul_file_attente): Zone {zone} non trouvée dans Thresholds. KPI non calculé.")
+                KPI[date][zone] = [1, 1] # Valeur par défaut (KPI "vert")
+            else:
+                KPI[date][zone] = calcul_KPI(att_moy,plan,Thresholds[zone])
+                
     return capacite, queue, attente, attente_moyenne, KPI
 
 def update_file_attente(processeur, zone, date, heure_debut, minute_debut, heure_fin, minute_fin, nouvelle_valeur = None):
@@ -469,6 +622,20 @@ def compute_colors(sx="forecast",rip="reel"):
         planning_checkin=  planning_checkin_perso
 
     for date in data_surete.keys():
+        
+        # --- DÉBUT DE LA CORRECTION ---
+        # Vérifier si cette date existe dans les dictionnaires de résultats (KPI, queue, etc.)
+        # S'ils manquent (à cause d'une désynchronisation), on ignore cette date.
+        if date not in KPI_surete or date not in queue_surete or \
+           date not in KPI_douane or date not in queue_douane or \
+           date not in KPI_checkin or date not in queue_checkin or \
+           date not in stand_data or date not in piste_data or \
+           date not in gate_occup:
+            
+            # print(f"Avertissement (compute_colors): Données désynchronisées. Clé de date '{date}' ignorée.")
+            continue # Passe à la date suivante
+        # --- FIN DE LA CORRECTION ---
+
         day_col = {}
         
         # STAND
@@ -491,32 +658,51 @@ def compute_colors(sx="forecast",rip="reel"):
 
         # SÛRETÉ
         for zone in graph_names["Sûreté"]:
-            day_col[zone] = worst_color([
-                KPI_to_color(KPI_surete[date][zone]),
-                comp_color(max(queue_surete[date][zone]) * LOSsurface["Sûreté"], SurfaceQueue[zone])
-            ])
+            # CORRECTION : Vérifie si la zone existe dans SurfaceQueue
+            if zone not in SurfaceQueue:
+                print(f"Avertissement (compute_colors): Zone {zone} non trouvée in SurfaceQueue. Calcul couleur dégradé.")
+                day_col[zone] = KPI_to_color(KPI_surete[date][zone]) # Mode dégradé
+            else:
+                day_col[zone] = worst_color([
+                    KPI_to_color(KPI_surete[date][zone]),
+                    comp_color(max(queue_surete[date][zone]) * LOSsurface["Sûreté"], SurfaceQueue[zone])
+                ])
         day_col["Sûreté"] = worst_color(day_col, copy.deepcopy(graph_names["Sûreté"]))
 
         # CHECK-IN
         for zone in graph_names["Check-in"]:
+            # CORRECTION : Gère le cas où la liste planning_checkin[date][zone] est vide
+            planning_list = planning_checkin[date][zone]
+            max_planning_value = max(planning_list) if planning_list else 0 # Gère la liste vide
+            
             day_col[zone] = worst_color([
                 KPI_to_color(KPI_checkin[date][zone]),
                 comp_color(max(queue_checkin[date][zone]) * LOSsurface["Check-in"],
-                           SurfaceQueue["Check-in"] * max(planning_checkin[date][zone]))
+                           SurfaceQueue["Check-in"] * max_planning_value)
             ])
         day_col["Check-in"] = worst_color(day_col, copy.deepcopy(graph_names["Check-in"]))
 
         # DOUANE
         for zone in graph_names["Douane"]:
-            day_col[zone] = worst_color([
-                KPI_to_color(KPI_douane[date][zone]),
-                comp_color(max(queue_douane[date][zone]) * LOSsurface["Douane"], SurfaceQueue[zone])
-            ])
+            # CORRECTION : Vérifie si la zone existe dans SurfaceQueue
+            if zone not in SurfaceQueue:
+                print(f"Avertissement (compute_colors): Zone {zone} non trouvée in SurfaceQueue. Calcul couleur dégradé.")
+                day_col[zone] = KPI_to_color(KPI_douane[date][zone]) # Mode dégradé
+            else:
+                day_col[zone] = worst_color([
+                    KPI_to_color(KPI_douane[date][zone]),
+                    comp_color(max(queue_douane[date][zone]) * LOSsurface["Douane"], SurfaceQueue[zone])
+                ])
         day_col["Douane"] = worst_color(day_col, copy.deepcopy(graph_names["Douane"]))
 
         # GATE
         for zone in graph_names["Gate"]:
-            day_col[zone] = value_to_color(max(gate_occup[date][zone]), zone, rip)
+            # CORRECTION : Vérifie si la zone existe dans gate_occup pour ce jour
+            if zone not in gate_occup[date]:
+                print(f"Avertissement (compute_colors): Zone {zone} non trouvée in gate_occup pour le {date}.")
+                day_col[zone] = "lightblue" # Couleur par défaut
+            else:
+                day_col[zone] = value_to_color(max(gate_occup[date][zone]), zone, rip)
         day_col["Gate"] = worst_color(day_col, copy.deepcopy(graph_names["Gate"]))
 
         colors[date] = day_col
@@ -570,7 +756,7 @@ def generate_calendar(graphs, colors):
                         "textAlign": "left",
                         "verticalAlign": "top",
                         "backgroundColor": (
-                            worst_color(colors[str(day)],graphs)
+                            worst_color(colors.get(str(day), {}), graphs) # CORRECTION: Utilise .get() pour gérer les dates manquantes
                             if (day.month == month and start_date <= day <= end_date) else "#eee"
                         ),
                         "color": "#000" if day.month == month else "#aaa",
@@ -584,7 +770,7 @@ def generate_calendar(graphs, colors):
                        if (day.month == month and start_date <= day <= end_date) else {})
                 ) for day in days
             ], style={"display": "grid", "gridTemplateColumns": "repeat(7, minmax(70px, 1fr))", "width": "100%"})
-        ],  className="month-box",   # on passe sur une classe CSS
+        ],  className="month-box",    # on passe sur une classe CSS
             style={
         "margin": "20px",
         "boxSizing": "border-box"
@@ -677,7 +863,11 @@ def generate_graph_multiple(values1, values2, xname, yname, shapes, label1, labe
 
 def generate_thresholds(title, toggle_rip):
     shapes = []
-    thresholds = Thresholds_perso[title] if toggle_rip == "perso" else Thresholds[title]
+    # CORRECTION : S'assurer que le titre existe dans les seuils
+    thresholds = (Thresholds_perso if toggle_rip == "perso" else Thresholds).get(title)
+    if not thresholds:
+        return [] # Pas de seuils à dessiner
+        
     shapes.append(dict(
         type="line",
         x0="00:00",
@@ -718,7 +908,11 @@ def generate_kpi_boxes(main, selected_date, title, toggle_rip):
     else:
         return None
 
-    seuils = Thresholds_perso[title] if toggle_rip == "perso" else Thresholds[title] 
+    # CORRECTION : S'assurer que le titre existe dans les seuils
+    seuils = (Thresholds_perso if toggle_rip == "perso" else Thresholds).get(title)
+    if not seuils:
+        return html.Div(f"Pas de seuils définis pour {title}")
+
     texts = [f"% du temps où l'attente est en dessous de {seuils[i]} min" for i in range(2)]
     colors = [KPI_to_color([KPIs[0], 1]),KPI_to_color([1, KPIs[1]])]
     colors = ["green" if color == "lightgrey" else color for color in colors]
@@ -840,7 +1034,7 @@ def calendar_only_layout(graphs,colors):
     return html.Div([
         html.Div(
             generate_calendar(graphs,colors),
-            className="calendar-grid"   # ← on passe sur une classe CSS
+            className="calendar-grid"    # ← on passe sur une classe CSS
         )
     ])
 
@@ -1277,7 +1471,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Nombre de positions avion {lettre}occupées (de 10 minutes avant {lettre_heure}TA à 10 minutes après {lettre_heure}TD)"
         xname = "Heure (HH:MM)"
         yname = f"Nombre de stand {lettre}occupés"
-        values = (data_stand_forecast if toggle == "forecast" else data_stand_schedule)[selected_date][title]    
+        values = (data_stand_forecast if toggle == "forecast" else data_stand_schedule)[selected_date][title]     
         shapes = generate_thresholds(title, toggle_rip)   
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1288,7 +1482,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Nombre de positions avion {lettre}libres"
         xname = "Heure (HH:MM)"
         yname = f"Nombre de stand {lettre}libres"
-        values = (stand_libre_forecast if toggle == "forecast" else stand_libre_schedule)[selected_date][title]    
+        values = (stand_libre_forecast if toggle == "forecast" else stand_libre_schedule)[selected_date][title]     
         shapes = [] 
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1306,7 +1500,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Nombre {sens} par heure roulante (de H à H+1)"
         xname = "Heure roulante (HH:MM)"
         yname = f"Nombre {sens}"
-        values = (data_piste_forecast if toggle == "forecast" else data_piste_schedule)[selected_date][title]    
+        values = (data_piste_forecast if toggle == "forecast" else data_piste_schedule)[selected_date][title]     
         shapes = generate_thresholds(title, toggle_rip)   
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1318,7 +1512,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Nombre de passagers arrivants à la sûreté chaque 5 minutes"
         xname = "Heure (HH:MM)"
         yname = "Nombre de passagers"
-        values = data_surete[selected_date][title]    
+        values = data_surete[selected_date][title]     
         shapes = [] 
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1332,7 +1526,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Temps d'attente moyen sur la tranche de 30 minutes"
         xname = "Heure (HH:MM)"
         yname = "Temps d'attente (min)"
-        values = (attente_moyenne_surete_reel if toggle_rip=="reel" else attente_moyenne_surete_ideal if toggle_rip=="ideal" else attente_moyenne_surete_perso)[selected_date][title]    
+        values = (attente_moyenne_surete_reel if toggle_rip=="reel" else attente_moyenne_surete_ideal if toggle_rip=="ideal" else attente_moyenne_surete_perso)[selected_date][title]     
         shapes = generate_thresholds(title, toggle_rip)   
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1342,7 +1536,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         
         full_title = f"{title} : Nombre de passagers dans la file d'attente"
         yname = "Nombre de passagers"
-        values = (queue_surete_reel if toggle_rip=="reel" else queue_surete_ideal if toggle_rip=="ideal" else queue_surete_perso)[selected_date][title]    
+        values = (queue_surete_reel if toggle_rip=="reel" else queue_surete_ideal if toggle_rip=="ideal" else queue_surete_perso)[selected_date][title]     
         shapes = generate_threshold(SurfaceQueue[title]/LOSsurface["Sûreté"])   
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1376,7 +1570,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Nombre de passagers arrivants au check-in chaque 5 minutes"
         xname = "Heure (HH:MM)"
         yname = "Nombre de passagers"
-        values = data_checkin[selected_date][title]    
+        values = data_checkin[selected_date][title]     
         shapes = []   
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1390,7 +1584,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Temps d'attente moyen sur la tranche de 30 minutes"
         xname = "Heure (HH:MM)"
         yname = "Temps d'attente (min)"
-        values = (attente_moyenne_checkin_reel if toggle_rip=="reel" else attente_moyenne_checkin_ideal if toggle_rip=="ideal" else attente_moyenne_checkin_perso)[selected_date][title]    
+        values = (attente_moyenne_checkin_reel if toggle_rip=="reel" else attente_moyenne_checkin_ideal if toggle_rip=="ideal" else attente_moyenne_checkin_perso)[selected_date][title]     
         shapes = generate_thresholds(title, toggle_rip)  
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1400,8 +1594,10 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         
         full_title = f"{title} : Nombre de passagers dans la file d'attente"
         yname = "Nombre de passagers"
-        values = (queue_checkin_reel if toggle_rip=="reel" else queue_checkin_ideal if toggle_rip=="ideal" else queue_checkin_perso)[selected_date][title]    
-        shapes = generate_threshold(SurfaceQueue["Check-in"]/LOSsurface["Check-in"]*max((planning_checkin_reel if toggle_rip=="reel" else planning_checkin_ideal if toggle_rip=="ideal" else planning_checkin_perso)[selected_date][title]))
+        values = (queue_checkin_reel if toggle_rip=="reel" else queue_checkin_ideal if toggle_rip=="ideal" else queue_checkin_perso)[selected_date][title]     
+        planning_list = (planning_checkin_reel if toggle_rip=="reel" else planning_checkin_ideal if toggle_rip=="ideal" else planning_checkin_perso)[selected_date][title]
+        max_planning_value = max(planning_list) if planning_list else 0
+        shapes = generate_threshold(SurfaceQueue["Check-in"]/LOSsurface["Check-in"]*max_planning_value)
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
             html.H4(full_title, style={"marginBottom": "10px"}),
@@ -1434,7 +1630,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Nombre de passagers arrivants à la douane chaque 5 minutes"
         xname = "Heure (HH:MM)"
         yname = "Nombre de passagers"
-        values = data_douane[selected_date][title]    
+        values = data_douane[selected_date][title]     
         shapes = []    
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1448,7 +1644,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Temps d'attente moyen sur la tranche de 30 minutes"
         xname = "Heure (HH:MM)"
         yname = "Temps d'attente (min)"
-        values = (attente_moyenne_douane_reel if toggle_rip=="reel" else attente_moyenne_douane_ideal if toggle_rip=="ideal" else attente_moyenne_douane_perso)[selected_date][title]    
+        values = (attente_moyenne_douane_reel if toggle_rip=="reel" else attente_moyenne_douane_ideal if toggle_rip=="ideal" else attente_moyenne_douane_perso)[selected_date][title]     
         shapes = generate_thresholds(title, toggle_rip)
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1458,7 +1654,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         
         full_title = f"{title} : Nombre de passagers dans la file d'attente"
         yname = "Nombre de passagers"
-        values = (queue_douane_reel if toggle_rip=="reel" else queue_douane_ideal if toggle_rip=="ideal" else queue_douane_perso)[selected_date][title]    
+        values = (queue_douane_reel if toggle_rip=="reel" else queue_douane_ideal if toggle_rip=="ideal" else queue_douane_perso)[selected_date][title]     
         shapes = generate_threshold(SurfaceQueue[title]/LOSsurface["Douane"])
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1498,7 +1694,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Nombre de passagers présents {texte} au total"
         xname = "Heure (HH:MM)"
         yname = "Nombre de passagers"
-        values = (occupation_gate_forecast if toggle == "forecast" else occupation_gate_schedule)[selected_date][title]    
+        values = (occupation_gate_forecast if toggle == "forecast" else occupation_gate_schedule)[selected_date][title]     
         shapes = generate_thresholds(title, toggle_rip)
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([
@@ -1510,7 +1706,7 @@ def update_graph_display(main, sub, toggle, toggle_rip, selected_date):
         full_title = f"{title} : Placeholder"
         xname = "Heure (HH:MM)"
         yname = "Placeholder"
-        values = [0]*24*12    
+        values = [0]*24*12     
         shapes = []  
         graph = generate_graph(values,xname,yname,shapes)
         graph_list.append(html.Div([

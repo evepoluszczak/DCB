@@ -166,7 +166,11 @@ def projette_SUPs_sur_vol(row, Gates_zone, gates_unique_zones, proc_map, ouvertu
 
     SupGate, flg = find_SUP(Airline, STD.dayofweek, Periode, Schengen, GateZoneSUP, "g", proc_map)
     for _, sup_row in SupGate.iterrows():
-        DCB_forecast.at[STD - pd.Timedelta(minutes=sup_row["Minutes"]), GateZoneDCB] += sup_row["Pourcentage"] * Pax
+        if GateZoneDCB in DCB_forecast.columns:
+            DCB_forecast.at[STD - pd.Timedelta(minutes=sup_row["Minutes"]), GateZoneDCB] += sup_row["Pourcentage"] * Pax
+        else:
+            # Optionnel : vous pouvez ajouter un print ici pour être averti si d'autres valeurs inattendues apparaissent
+            pass        
 
     return [flci, fls, fld, flg]
 
@@ -258,4 +262,5 @@ def ApplicationSUP():
     PlanningCheckin.to_csv("Output/PlanningCheckin.csv", index=False)
 
     print(f"Temps d'exécution : {(time() - start_time)/60:.2f} minutes")
+
     return DCB_forecast.reset_index(), PlanningCheckin

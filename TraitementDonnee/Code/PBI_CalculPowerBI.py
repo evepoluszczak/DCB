@@ -87,10 +87,10 @@ def CalculPBI():
     planning_surete = load_data("PlanningSurete","Capacite/Planning")
     planning_surete_ideal = load_data("PlanningSureteIdeal","Capacite/Planning")
 
-    checkin_zone = list(list(data_checkin.values())[0].keys())
-    surete_zone = list(list(data_surete.values())[0].keys())
-    douane_zone = list(list(data_douane.values())[0].keys())
-    gate_zone = list(list(data_gate.values())[0].keys())
+    checkin_zone = list(list(data_checkin.values())[0].keys()) if data_checkin else []
+    surete_zone = list(list(data_surete.values())[0].keys()) if data_surete else []
+    douane_zone = list(list(data_douane.values())[0].keys()) if data_douane else []
+    gate_zone = list(list(data_gate.values())[0].keys()) if data_gate else []
 
     #gate_zone_conversion = load_data("GateZone","Annexe")
     
@@ -294,5 +294,6 @@ def CalculPBI():
         df_final.loc[df_final["Processeur"]==processeur,"Seuil rouge"] = seuil.loc[seuil["Processeur"] == processeur, "Seuil rouge"].iloc[0]
     for processeur in temps["Processeur"].to_list():
         df_final.loc[df_final["Processeur"]==processeur,"Temps de process"] = temps.loc[temps["Processeur"]==processeur, "Temps de process"].iloc[0]
+
 
     df_final.to_csv("//gva.tld/aig/O/12_EM-DO/4_OOP/17_PBI/02 - Dashboards en développement/EPL/15. DCB/Power BI DCB/Power BI DCB/Data/global.csv",index=False)
