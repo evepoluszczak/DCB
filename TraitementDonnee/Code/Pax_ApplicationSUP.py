@@ -3,12 +3,16 @@ import json
 import pandas as pd
 import os
 from time import time
-from tqdm import tqdm 
+from tqdm import tqdm
+# CORRECTION : Imports des chemins dynamiques
+from chemin_dossier import CHEMIN_INPUT, CHEMIN_OUTPUT
+# Définition de CHEMIN_AUTRE basé sur CHEMIN_INPUT
+CHEMIN_AUTRE = CHEMIN_INPUT / "Autre"
 
 def load_data(name): #helper to open a JSON file from a fixed UNC folder, Builds .../Input/Autre/<name>.json, opens it UTF-8, returns parsed JSON (Python dict/list)
-    DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Autre"
-    # Parcourir les fichiers du dossier Actuel
-    fichier = os.path.join(DATA_FOLDER,name+".json")
+    # DATA_FOLDER est maintenant CHEMIN_AUTRE (défini après les imports)
+    # On utilise l'opérateur / de pathlib au lieu de os.path.join
+    fichier = CHEMIN_AUTRE / (name + ".json")
     with open(fichier, 'r', encoding='utf-8') as file:
         return json.load(file)
 
@@ -135,8 +139,8 @@ def projette_SUPs_sur_vol(row, Gates_zone, gates_unique_zones, proc_map, ouvertu
     SureteZoneDCB = "Sûreté : TERMINAL 2" if CheckinZoneSUP == "T2" else "Sûreté : France" if CheckinZoneSUP == "109-120" else "Sûreté : International"
 
     mask_checkin = (PlanningCheckin["Date et heure"] >= STD - ouverture_checkin) & \
-                   (PlanningCheckin["Date et heure"] <= STD - fermeture_checkin) & \
-                   (PlanningCheckin[CheckinZoneDCB] < NbCheckin)
+                    (PlanningCheckin["Date et heure"] <= STD - fermeture_checkin) & \
+                    (PlanningCheckin[CheckinZoneDCB] < NbCheckin)
     PlanningCheckin.loc[mask_checkin, CheckinZoneDCB] = NbCheckin
 
     if CheckinZoneSUP == "T2":
@@ -166,11 +170,12 @@ def projette_SUPs_sur_vol(row, Gates_zone, gates_unique_zones, proc_map, ouvertu
 
     SupGate, flg = find_SUP(Airline, STD.dayofweek, Periode, Schengen, GateZoneSUP, "g", proc_map)
     for _, sup_row in SupGate.iterrows():
+        # CORRECTION : Ajout de la protection contre le KeyError 'TBN'
         if GateZoneDCB in DCB_forecast.columns:
             DCB_forecast.at[STD - pd.Timedelta(minutes=sup_row["Minutes"]), GateZoneDCB] += sup_row["Pourcentage"] * Pax
         else:
-            # Optionnel : vous pouvez ajouter un print ici pour être averti si d'autres valeurs inattendues apparaissent
-            pass        
+            # Gère le cas où GateZoneDCB est 'TBN' ou une autre valeur non-column
+            pass 
 
     return [flci, fls, fld, flg]
 
@@ -183,11 +188,11 @@ def ApplicationSUP():
     fermeture_checkin = pd.Timedelta(minutes=15)
     semaine = {"lundi":0, "mardi":1, "mercredi":2, "jeudi":3, "vendredi":4, "samedi":5, "dimanche":6}
 
-    # Dossiers
-    os.chdir("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data")
-
+    # CORRECTION : Suppression de os.chdir
+    
     # Chargement des données
-    SUPs = pd.read_excel("Input/Autre/Show Up Profiles - 2023 2024 - Departure PAX.xlsx")
+    # CORRECTION : Utilisation des chemins pathlib
+    SUPs = pd.read_excel(CHEMIN_AUTRE / "Show Up Profiles - 2023 2024 - Departure PAX.xlsx")
     SUPs.columns = ["Zone","UID","Jour","Airline IATA","Période","Schengen","Minutes","Pourcentage"]
     zone = load_data("ZoneSUP")
     airline = load_data("AirlineSUP")
@@ -210,12 +215,14 @@ def ApplicationSUP():
     SUPs_PAF["Zone"] = SUPs_PAF["Zone"].str.split(" : ").str[1]
     SUPs_CSC["Zone"] = "All"
     
-    SUPT2surete = pd.read_csv("Input/Autre/Show up profile rules in T2.csv")
+    # CORRECTION : Utilisation des chemins pathlib
+    SUPT2surete = pd.read_csv(CHEMIN_AUTRE / "Show up profile rules in T2.csv")
     SUPT2checkin = SUPT2surete.copy()
     SUPT2checkin["Minutes"] += 20
 
     # Chargement vols
-    vols = pd.read_csv("Input/WEBI/DCB_BSH_Landside.csv")
+    # CORRECTION : Utilisation des chemins pathlib
+    vols = pd.read_csv(CHEMIN_INPUT / "WEBI" / "DCB_BSH_Landside.csv")
     vols["Date"] = pd.to_datetime(vols["Date"])
     vols["Local Schedule Time"] = pd.to_datetime(vols["Local Schedule Time"])
     vols["Better Forecast Pax Published"] = vols["Better Forecast Pax Published"].fillna(0)
@@ -257,10 +264,12 @@ def ApplicationSUP():
         if DCB_forecast[col].sum() == 0:
             DCB_forecast = DCB_forecast.drop(columns = col)
     # Export
-    vols.to_csv("Output/Fallback.csv", index=False)
-    DCB_forecast.to_csv("Output/DCB_output.csv")
-    PlanningCheckin.to_csv("Output/PlanningCheckin.csv", index=False)
+    # CORRECTION : Utilisation de CHEMIN_OUTPUT et suppression de os.chdir
+    CHEMIN_OUTPUT.mkdir(parents=True, exist_ok=True)
+    
+    vols.to_csv(CHEMIN_OUTPUT / "Fallback.csv", index=False)
+    DCB_forecast.to_csv(CHEMIN_OUTPUT / "DCB_output.csv")
+    PlanningCheckin.to_csv(CHEMIN_OUTPUT / "PlanningCheckin.csv", index=False)
 
     print(f"Temps d'exécution : {(time() - start_time)/60:.2f} minutes")
-
     return DCB_forecast.reset_index(), PlanningCheckin
