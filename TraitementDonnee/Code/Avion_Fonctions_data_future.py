@@ -8,34 +8,54 @@ from pathlib import Path
 
 import shutil
 import re
+# CORRECTION : Ajout de CHEMIN_INPUT
+from chemin_dossier import CHEMIN_OUTPUT, CHEMIN_INPUT
 
+# CORRECTION : Remplacement par la version pathlib
 def copier_et_renommer_fichiers(dossier_source, dossier_destination):
     """Récupère la planification easyjet dans le dossier pour le PBI et le copie avec un nom adapté dans le dossier du DCB"""
-    if not os.path.exists(dossier_destination):
-        os.makedirs(dossier_destination)
+    
+    # Convertir les chemins en objets Path pour plus de robustesse
+    dossier_source_path = Path(dossier_source)
+    dossier_destination_path = Path(dossier_destination)
+
+    # Utiliser pathlib pour créer le dossier
+    dossier_destination_path.mkdir(parents=True, exist_ok=True)
     
     pattern = re.compile(r'([SW])(\d{2})')
     
-    for fichier in os.listdir(dossier_source):
-        match = pattern.search(fichier)
+    # Gérer le cas où le dossier source n'existe pas
+    if not dossier_source_path.exists():
+        print(f"Erreur : Le dossier source n'existe pas : {dossier_source_path}")
+        return
+
+    # Utiliser iterdir() pour lister les fichiers
+    for fichier_path in dossier_source_path.iterdir():
+        match = pattern.search(fichier_path.name)
         if match:
             lettre, chiffres = match.groups()
-            nouveau_nom = f"Planning_EZS_{chiffres}{lettre}{os.path.splitext(fichier)[1]}"
+            # Utiliser .suffix pour obtenir l'extension
+            nouveau_nom = f"Planning_EZS_{chiffres}{lettre}{fichier_path.suffix}"
             
-            chemin_source = os.path.join(dossier_source, fichier)
-            chemin_destination = os.path.join(dossier_destination, nouveau_nom)
+            chemin_source = fichier_path
+            chemin_destination = dossier_destination_path / nouveau_nom
 
-            if os.path.isfile(chemin_destination):
-                old = os.path.getsize(chemin_destination)
-                new = os.path.getsize(chemin_source)
-                if new/old > 0.9:
-                    shutil.copy(chemin_source, chemin_destination)
-                    print(f"Copié : {fichier} -> {nouveau_nom}")
-                else:
-                    print(f"Le fichier {chemin_source} semble corrompu : sa taille est de {new} bits alors que le fichier précédent avait une taille de {old} bits.")
+            # Utiliser les méthodes pathlib
+            if chemin_destination.is_file():
+                try:
+                    old_size = chemin_destination.stat().st_size
+                    new_size = chemin_source.stat().st_size
+                    # Gérer la division par zéro si l'ancien fichier est vide
+                    if old_size == 0 or (new_size / old_size) > 0.9:
+                        shutil.copy(chemin_source, chemin_destination)
+                        print(f"Copié : {fichier_path.name} -> {nouveau_nom}")
+                    else:
+                        print(f"Le fichier {chemin_source} semble corrompu : sa taille est de {new_size} bits alors que le fichier précédent avait une taille de {old_size} bits.")
+                except Exception as e:
+                    print(f"Erreur lors de la comparaison des fichiers : {e}")
             else:
                 shutil.copy(chemin_source, chemin_destination)
-                print(f"Copié : {fichier} -> {nouveau_nom}")
+                print(f"Copié : {fichier_path.name} -> {nouveau_nom}")
 
 def read_excel_with_unknown_header_index(file):
     # Lire le fichier Excel sans interpréter de ligne comme en-tête
@@ -69,9 +89,9 @@ def non_LX_non_EZS(data_flight):
     
     data_flight_depart = data_flight.loc[data_flight["Arrival - Departure Code"] == "D"].copy()
     liste_columns_depart = ['Call Sign - IATA', 'Schengen Flight', 'French Sector',
-                    'Official IATA Airport Code', 'Local Schedule Time', 'Local Skd Time Grp 60 minutes', 
-                    'Pax', 'Bus_OOP+', 'Date', 'Nb Bags Total', 'Linked Flight Call Sign - IATA', 
-                    'Night Stop_OOP+','Gate OOP+']
+           'Official IATA Airport Code', 'Local Schedule Time', 'Local Skd Time Grp 60 minutes', 
+           'Pax', 'Bus_OOP+', 'Date', 'Nb Bags Total', 'Linked Flight Call Sign - IATA', 
+           'Night Stop_OOP+','Gate OOP+']
     data_flight_depart = data_flight_depart[liste_columns_depart]
     new_columns_name = {'Call Sign - IATA' : 'Call Sign - IATA_DEP',
                        'Schengen Flight' : 'Schengen Flight_DEP',
@@ -105,17 +125,17 @@ def non_LX_non_EZS(data_flight):
     
     # merge jour meme
     data_end = pd.merge(data_flight_depart, data_flight, how = 'outer', on = ['Date', 'Call Sign - IATA_ARR',
-                                                              'Call Sign - IATA_DEP'])
+                                                                             'Call Sign - IATA_DEP'])
     
     data_pb = data_end.loc[(data_end['Official IATA Airport Code_DEP'].isna()) |
-                      (data_end['Official IATA Airport Code_ARR'].isna())]
+                       (data_end['Official IATA Airport Code_ARR'].isna())]
 
     data_end = data_end.loc[(~data_end['Official IATA Airport Code_DEP'].isna()) &
-                          (~data_end['Official IATA Airport Code_ARR'].isna())]
+                             (~data_end['Official IATA Airport Code_ARR'].isna())]
 
     data_pb = pd.concat([data_pb, 
-                         data_end.loc[data_end['Local Schedule Time_ARR'] >= data_end['Local Schedule Time_DEP']]], 
-                        ignore_index = True)
+                          data_end.loc[data_end['Local Schedule Time_ARR'] >= data_end['Local Schedule Time_DEP']]], 
+                         ignore_index = True)
 
     data_end =  data_end.loc[data_end['Local Schedule Time_ARR'] < data_end['Local Schedule Time_DEP']]
 
@@ -143,10 +163,10 @@ def non_LX_non_EZS(data_flight):
     data_end_NS['Date_DEP'] = data_end_NS['Date'].copy()
 
     data_end_NS_pb =  data_end_NS.loc[(data_end_NS['Local Schedule Time_ARR'].isna()) |
-                                        (data_end_NS['Local Schedule Time_DEP'].isna())].copy()
+                                         (data_end_NS['Local Schedule Time_DEP'].isna())].copy()
 
     data_end_NS = data_end_NS.loc[(~data_end_NS['Local Schedule Time_ARR'].isna()) &
-                                        (~data_end_NS['Local Schedule Time_DEP'].isna())]
+                                       (~data_end_NS['Local Schedule Time_DEP'].isna())]
 
     data_end = pd.concat([data_end, data_end_NS], ignore_index = True)
 
@@ -210,9 +230,10 @@ def for_EZS (data_flight_EZS, data_end) :
     # ------------------------------1
     # Traitement du fichier EZS
     # ------------------------------
-    nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Planning_EZS")
-    os.chdir(nouveau_repertoire)
-    files = os.listdir()
+
+    dossier_planning_ezs = CHEMIN_INPUT / "Planning_EZS"
+    
+    files = sorted(list(dossier_planning_ezs.iterdir()))
     
     planning_EZS = read_excel_with_unknown_header_index(files[-2])
     planning_EZS.replace(to_replace=" ", value=pd.NA,inplace=True)
@@ -245,8 +266,8 @@ def for_EZS (data_flight_EZS, data_end) :
     
     data_flight_depart_EZS = data_flight_EZS.loc[data_flight_EZS["Arrival - Departure Code"] == "D"].copy()
     liste_columns_depart_EZS = ['Call Sign - IATA', 'Schengen Flight', 'French Sector',
-                     'Official IATA Airport Code', 'Local Schedule Time', 'Local Skd Time Grp 60 minutes', 
-                            'Pax', 'Bus_OOP+', 'Date', 'Nb Bags Total', 'Night Stop_OOP+', 'Gate OOP+']
+           'Official IATA Airport Code', 'Local Schedule Time', 'Local Skd Time Grp 60 minutes', 
+                'Pax', 'Bus_OOP+', 'Date', 'Nb Bags Total', 'Night Stop_OOP+', 'Gate OOP+']
     data_flight_depart_EZS = data_flight_depart_EZS[liste_columns_depart_EZS]
     new_columns_name = {'Call Sign - IATA' : 'Call Sign - IATA_DEP',
                        'Schengen Flight' : 'Schengen Flight_DEP',
@@ -278,12 +299,12 @@ def for_EZS (data_flight_EZS, data_end) :
     # ------------------------------
     
     data_flight_arrivee_EZS = pd.merge(data_flight_arrivee_EZS, planning_EZS, 
-                                       on = ['Call Sign - IATA_ARR', 'Date'], how = 'left')
+                                      on = ['Call Sign - IATA_ARR', 'Date'], how = 'left')
     data_flight_depart_EZS = pd.merge(data_flight_depart_EZS, planning_EZS, 
-                                      on = ['Call Sign - IATA_DEP', 'Date'], how = 'left')
+                                     on = ['Call Sign - IATA_DEP', 'Date'], how = 'left')
 
     test = pd.merge(data_flight_arrivee_EZS, data_flight_depart_EZS, 
-                    on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
+                   on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
     test = test.loc[test['Local Schedule Time_DEP']  >= add_30_minutes(test['Local Schedule Time_ARR'])]
     test["Date_DEP"] = test["Date"]
 
@@ -300,9 +321,9 @@ def for_EZS (data_flight_EZS, data_end) :
     data_flight_depart_EZS['Date'] = data_flight_depart_EZS['Date'] - timedelta(days = 1)
 
     data_flight_depart_EZS = pd.merge(data_flight_depart_EZS, planning_EZS, 
-                                      on = ['Call Sign - IATA_DEP', 'Date'], how = 'left')
+                                     on = ['Call Sign - IATA_DEP', 'Date'], how = 'left')
     test2 = pd.merge(data_flight_arrivee_EZS, data_flight_depart_EZS, 
-                     on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
+                      on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
 
     data_flight_depart_EZS = data_flight_depart_EZS[~data_flight_depart_EZS['VID_DEP'].isin(test2['VID_DEP'].to_list())]
 
@@ -316,9 +337,9 @@ def for_EZS (data_flight_EZS, data_end) :
     data_flight_depart_EZS['Date'] = data_flight_depart_EZS['Date'] - timedelta(days = 1)
 
     data_flight_depart_EZS = pd.merge(data_flight_depart_EZS, planning_EZS, 
-                                      on = ['Call Sign - IATA_DEP', 'Date'], how = 'left')
+                                     on = ['Call Sign - IATA_DEP', 'Date'], how = 'left')
     test3 = pd.merge(data_flight_arrivee_EZS, data_flight_depart_EZS, 
-                     on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
+                      on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
 
     data_flight_depart_EZS = data_flight_depart_EZS[~data_flight_depart_EZS['VID_DEP'].isin(test3['VID_DEP'].to_list())]
 
@@ -350,16 +371,16 @@ def for_EZS (data_flight_EZS, data_end) :
                 csd = data_local_depart['Call Sign - IATA_DEP'].iloc[ind]
 
                 data_flight_depart_EZS.loc[(data_flight_depart_EZS['Date_DEP'] == date + timedelta(days = 1))
-                                          & (data_flight_depart_EZS['Call Sign - IATA_DEP'] == csd), 
-                                          'Call Sign - IATA_ARR'] = csa
+                                           & (data_flight_depart_EZS['Call Sign - IATA_DEP'] == csd), 
+                                           'Call Sign - IATA_ARR'] = csa
 
                 data_flight_arrivee_EZS.loc[(data_flight_arrivee_EZS['Date'] == date) &
-                                          (data_flight_arrivee_EZS['Call Sign - IATA_ARR'] == csa),
-                                          'Call Sign - IATA_DEP'] = csd
+                                            (data_flight_arrivee_EZS['Call Sign - IATA_ARR'] == csa),
+                                            'Call Sign - IATA_DEP'] = csd
 
     data_flight_depart_EZS['Date'] = data_flight_depart_EZS['Date_DEP'] - timedelta(days = 1)
     test4 = pd.merge(data_flight_arrivee_EZS, data_flight_depart_EZS, 
-                     on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
+                      on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
     
     data_flight_depart_EZS = data_flight_depart_EZS[~data_flight_depart_EZS['VID_DEP'].isin(test4['VID_DEP'].to_list())]
 
@@ -377,23 +398,23 @@ def for_EZS (data_flight_EZS, data_end) :
 
 
         d = data_flight_depart_EZS.loc[(data_flight_depart_EZS['Date_DEP'] == (date + timedelta(days = 1)))
-                                          & (data_flight_depart_EZS['Call Sign - IATA_ARR'] == '')]
+                                         & (data_flight_depart_EZS['Call Sign - IATA_ARR'] == '')]
 
         if len(d) > 0:
             summ += 1
             csd = d['Call Sign - IATA_DEP'].iloc[0]
 
             data_flight_depart_EZS.loc[(data_flight_depart_EZS['Date_DEP'] == (date + timedelta(days = 1)))
-                                          & (data_flight_depart_EZS['Call Sign - IATA_DEP'] == csd),
-                                      'Call Sign - IATA_ARR'] = csa
+                                         & (data_flight_depart_EZS['Call Sign - IATA_DEP'] == csd),
+                                       'Call Sign - IATA_ARR'] = csa
 
             data_flight_arrivee_EZS.loc[(data_flight_arrivee_EZS['Date'] == date)
-                                       & (data_flight_arrivee_EZS['Call Sign - IATA_ARR'] == csa),
-                                       'Call Sign - IATA_DEP'] = csd
+                                      & (data_flight_arrivee_EZS['Call Sign - IATA_ARR'] == csa),
+                                      'Call Sign - IATA_DEP'] = csd
 
     data_flight_depart_EZS['Date'] = data_flight_depart_EZS['Date_DEP'] - timedelta(days = 1)
     test5 = pd.merge(data_flight_arrivee_EZS, data_flight_depart_EZS, 
-                     on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
+                      on = ['Call Sign - IATA_ARR', 'Call Sign - IATA_DEP', 'Date'], how = 'inner')
 
     data_flight_depart_EZS = data_flight_depart_EZS[~data_flight_depart_EZS['VID_DEP'].isin(test5['VID_DEP'].to_list())]
 
