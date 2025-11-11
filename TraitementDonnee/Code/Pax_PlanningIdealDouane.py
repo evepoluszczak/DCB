@@ -1,44 +1,77 @@
 import pandas as pd
-import json
 import datetime
 import shutil
 import os
+import re # Ajouté pour la fonction deplacer_fichier
 from math import ceil
+from pathlib import Path # Ajouté pour la nouvelle gestion des chemins
+from chemin_dossier import CHEMIN_DATA_SOURCE # <-- Correction de l'import
+import json # Ajouté, car json.load est utilisé
 
-DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source"
+# DATA_FOLDER n'est plus nécessaire, CHEMIN_DATA_SOURCE le remplace
+
 def load_data(name, sous_dossier):
-    # Parcourir les fichiers du dossier Actuel
-    dossier = os.path.join(DATA_FOLDER,sous_dossier,"Actuel")
-    for fichier in os.listdir(dossier):
-        if name in fichier:
-            file_name = fichier
+    # CORRECTION : Utilisation de pathlib
+    dossier_path = CHEMIN_DATA_SOURCE / sous_dossier / "Actuel"
+    
+    # Gérer le cas où le dossier "Actuel" n'existe pas
+    if not dossier_path.exists():
+        print(f"Dossier 'Actuel' non trouvé : {dossier_path}")
+        return None # Retourner None pour éviter une erreur
+
+    target_file = None
+    for fichier_path in dossier_path.iterdir():
+        if name in fichier_path.name:
+            target_file = fichier_path
             break
-    with open(os.path.join(dossier,file_name), 'r', encoding='utf-8') as file:
-        return json.load(file)
+    
+    if target_file:
+        with open(target_file, 'r', encoding='utf-8') as file:
+            return json.load(file)
+    else:
+        print(f"Aucun fichier contenant '{name}' trouvé dans '{dossier_path}'")
+        return None # Gérer le cas où aucun fichier n'est trouvé
 
 def repls(liste,nb=6):
     return [valeur for valeur in liste for _ in range(nb)]
 
-def deplacer_fichier(nom_cible, super_dossier, sous_dossier = None):
-    # Obtenir le chemin absolu des dossiers
-    chemin_actuel = os.path.join(super_dossier, 'Actuel')
-    chemin_historique = os.path.join(super_dossier, 'Historique')
+def deplacer_fichier(nom_cible, super_dossier: Path, sous_dossier: str = None):
+    # CORRECTION : Remplacement par la version pathlib
+    chemin_actuel = super_dossier / 'Actuel'
+    chemin_historique = super_dossier / 'Historique'
     if sous_dossier:
-        chemin_historique = os.path.join(chemin_historique,sous_dossier)
+        chemin_historique = chemin_historique / sous_dossier
 
-    # Parcourir les fichiers du dossier Actuel
-    for fichier in os.listdir(chemin_actuel):
-        if nom_cible in fichier:
-            source = os.path.join(chemin_actuel, fichier)
-            destination = os.path.join(chemin_historique, fichier)
+    # S'assurer que le dossier de destination existe
+    chemin_historique.mkdir(parents=True, exist_ok=True)
+    
+    # Gérer le cas où le dossier "Actuel" n'existe pas
+    if not chemin_actuel.exists():
+        print(f"Dossier 'Actuel' non trouvé : {chemin_actuel}")
+        return
+
+    # Parcourir les fichiers du dossier Actuel avec iterdir()
+    for fichier_path in chemin_actuel.iterdir():
+        fichier_nom = fichier_path.name # Obtenir le nom du fichier
+        
+        # Logique de ce script (différente de Pax_PlanningSurete)
+        if nom_cible in fichier_nom:
+            source = fichier_path
+            destination = chemin_historique / fichier_nom
+            
+            # shutil.move fonctionne parfaitement avec les objets Path
             shutil.move(source, destination)
-            print(f"Fichier déplacé : {fichier}")
+            print(f"Fichier déplacé : {fichier_nom}")
             return
 
     print(f"Aucun fichier correspondant à '{nom_cible}' trouvé dans '{chemin_actuel}'.")
+
     
 def PlanningIdealDouane(data):
     TempsProcess = load_data("TempsProcess","Capacite/TempsProcess")
+    if TempsProcess is None: # S'assurer que les données sont chargées
+        print("Erreur: Impossible de charger TempsProcess. Arrêt.")
+        return
 
     douane_cols = []
     for col in data.columns:
@@ -88,7 +121,7 @@ def PlanningIdealDouane(data):
                         if dif_prec < -dif_suiv:
                             smoothed.iloc[i] = max(prec,suiv)
                             smoothed.iloc[i+1] = suiv + 1
-                        else:
+                        elif i+2 < len(data): # Ajout de la vérification
                             suiv2 = data[f"Planning {zone}"].iloc[i+2]
                             if suiv2-suiv < 0:
                                 smoothed.iloc[i] = max(prec,suiv)
@@ -117,13 +150,18 @@ def PlanningIdealDouane(data):
                     dif_suiv = suiv-cur
 
                     if dif_prec > 0 and dif_suiv > 0:
-                        suiv2 = data[f"Planning {zone} lissé"].iloc[i+2]
-                        if suiv2-suiv > 0:
-                            smoothed.iloc[i] = prec
-                            smoothed.iloc[i+1] = suiv2
-                            skip = True
-                            skip2 = True
-                        elif dif_prec > dif_suiv or dif_prec > 2:
+                        if i+2 < len(data): # S'assurer que suiv2 existe
+                            suiv2 = data[f"Planning {zone} lissé"].iloc[i+2]
+                            if suiv2-suiv > 0:
+                                smoothed.iloc[i] = prec
+                                smoothed.iloc[i+1] = suiv2
+                                skip = True
+                                skip2 = True
+                            elif dif_prec > dif_suiv or dif_prec > 2:
+                                smoothed.iloc[i] = suiv
+                            else:
+                                smoothed.iloc[i] = prec
+                        elif dif_prec > dif_suiv or dif_prec > 2: # Gérer le cas de la fin du dataframe
                             smoothed.iloc[i] = suiv
                         else:
                             smoothed.iloc[i] = prec
@@ -131,20 +169,23 @@ def PlanningIdealDouane(data):
                         if dif_suiv < -2:
                             smoothed.iloc[i] = prec
                         else:
-                            suiv2 = data[f"Planning {zone} lissé"].iloc[i+2]
-                            if suiv2-suiv < 0 and suiv2-suiv > -3:
-                                smoothed.iloc[i] = suiv
-                                smoothed.iloc[i+2] = suiv
-                                skip = True
-                                skip2 = True
-                            elif max(dif_prec,-suiv/2) < dif_suiv:
+                            if i+2 < len(data): # S'assurer que suiv2 existe
+                                suiv2 = data[f"Planning {zone} lissé"].iloc[i+2]
+                                if suiv2-suiv < 0 and suiv2-suiv > -3:
+                                    smoothed.iloc[i] = suiv
+                                    smoothed.iloc[i+2] = suiv
+                                    skip = True
+                                    skip2 = True
+                                elif max(dif_prec,-suiv/2) < dif_suiv:
+                                    smoothed.iloc[i] = suiv
+                                else:
+                                    smoothed.iloc[i] = prec
+                            elif max(dif_prec,-suiv/2) < dif_suiv: # Gérer le cas de la fin du dataframe
                                 smoothed.iloc[i] = suiv
                             else:
                                 smoothed.iloc[i] = prec
                             
         data[f"Planning {zone} lissé"] = smoothed
-
-    # data.to_csv("D:/users/bastien.schneuwly/workfolders/documents/Stage_Bastien/cpdouane.csv",index=False)
 
     dates = data["Date et heure"].dt.date.drop_duplicates()
     debut = dates.min().strftime(format="%Y%m%d")
@@ -160,10 +201,15 @@ def PlanningIdealDouane(data):
             planning_surete[date.strftime(format="%Y-%m-%d")][zone] = repls(data_jour[f"Planning {zone} lissé"].to_list())
 
     nom = "PlanningDouaneIdeal"
-    dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Capacite/Planning"
-    deplacer_fichier(nom,dossier,"DouaneIdeal")
+    # CORRECTION : Utilisation de pathlib
+    dossier_destination = CHEMIN_DATA_SOURCE / "Capacite" / "Planning"
+    
+    deplacer_fichier(nom, dossier_destination, "DouaneIdeal") # dossier_destination est maintenant un Path
+    
     file = f"{mnt}{nom}{debut}-{fin}.json"
 
-    with open(os.path.join(dossier,"Actuel",file),"w") as f:
-
+    # CORRECTION : Utilisation de pathlib pour écrire le fichier
+    (dossier_destination / "Actuel").mkdir(parents=True, exist_ok=True)
+    
+    with open(dossier_destination / "Actuel" / file, "w") as f:
         json.dump(planning_surete,f)
