@@ -337,8 +337,5 @@ def main():
     st.markdown("---")
     st.caption("💡 Consultez la documentation pour plus d'informations sur la gestion des données")
 
-if __name__ == "__main__":
-    main()
-
-# Exécuter main() directement (pas dans if __name__)
+# Exécuter main() une seule fois
 main()

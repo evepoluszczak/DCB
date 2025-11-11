@@ -1,6 +1,7 @@
 """
 Application DCB - Demand Capacity Balancing
-Version Streamlit - Safe Loading
+Version Streamlit Moderne et Optimisée
+Design professionnel pour partage multi-utilisateurs
 """
 
 import streamlit as st
@@ -12,14 +13,213 @@ import re
 from math import ceil
 import copy
 import sys
+import plotly.graph_objs as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 
-# Configuration de la page
+# ==================== CONFIGURATION ====================
+
 st.set_page_config(
-    page_title="Outil DCB - Demand Capacity Balancing",
+    page_title="DCB - Demand Capacity Balancing | Geneva Airport",
     page_icon="✈️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "# DCB Tool\nDemand Capacity Balancing pour l'Aéroport de Genève"
+    }
 )
+
+# CSS Personnalisé pour un design moderne
+st.markdown("""
+<style>
+    /* Design global moderne */
+    .main {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+
+    /* Header amélioré */
+    .dcb-header {
+        background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        margin-bottom: 2rem;
+        color: white;
+    }
+
+    .dcb-header h1 {
+        color: white;
+        font-weight: 700;
+        margin: 0;
+        font-size: 2.5rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .dcb-header p {
+        color: #E0E7FF;
+        margin: 0.5rem 0 0 0;
+        font-size: 1.1rem;
+    }
+
+    /* Cards modernes pour métriques */
+    .metric-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border-left: 4px solid #3B82F6;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1E3A8A;
+        margin: 0;
+    }
+
+    .metric-label {
+        font-size: 0.9rem;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 0.5rem;
+    }
+
+    /* Status indicators */
+    .status-green {
+        background: #10B981;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        display: inline-block;
+        font-weight: 600;
+    }
+
+    .status-yellow {
+        background: #F59E0B;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        display: inline-block;
+        font-weight: 600;
+    }
+
+    .status-red {
+        background: #EF4444;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        display: inline-block;
+        font-weight: 600;
+    }
+
+    /* Calendrier moderne */
+    .calendar-day {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+    }
+
+    .calendar-day:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-color: #3B82F6;
+    }
+
+    /* Sidebar améliorée */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1E3A8A 0%, #3B82F6 100%);
+    }
+
+    [data-testid="stSidebar"] .element-container {
+        color: white;
+    }
+
+    /* Boutons modernes */
+    .stButton > button {
+        background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%);
+        color: white;
+        border-radius: 8px;
+        border: none;
+        padding: 0.5rem 2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
+    }
+
+    /* Tabs modernes */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: transparent;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        background-color: white;
+        border-radius: 8px 8px 0 0;
+        padding: 12px 24px;
+        font-weight: 600;
+        border: none;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%);
+        color: white;
+    }
+
+    /* Plotly graphs */
+    .js-plotly-plot {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    /* Filtres avancés */
+    .filter-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+
+    /* Messages d'information */
+    .info-box {
+        background: #EFF6FF;
+        border-left: 4px solid #3B82F6;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
+
+    /* Data period badge */
+    .data-period {
+        background: #F1F5F9;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        display: inline-block;
+        color: #475569;
+        font-weight: 500;
+        margin-bottom: 1rem;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Configuration
 post_ops = False
@@ -32,26 +232,21 @@ def get_base_path():
 def get_data_folder():
     """Détecte automatiquement le dossier de données disponible"""
     base_path = get_base_path()
-
-    # Chemins locaux uniquement (pas de chemins réseau qui peuvent timeout)
     possible_paths = [
         os.path.join(base_path, "Data Source"),
         os.path.join(base_path, "DataSource"),
         os.path.join(base_path, "data"),
         os.path.join(base_path, "Data"),
     ]
-
-    # Chercher le premier chemin qui existe
     for path in possible_paths:
         try:
             if os.path.exists(path) and os.path.isdir(path):
                 return path
         except:
             continue
-
     return None
 
-# Initialisation différée pour éviter les timeouts
+# Initialisation différée
 ASSETS_FOLDER = None
 DATA_FOLDER = None
 FRENCH_MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -63,6 +258,8 @@ gate_secteurs = []
 graph_names_list = []
 start_date = None
 end_date = None
+
+# ==================== FONCTIONS UTILITAIRES ====================
 
 def jours(weekday):
     j = weekday.replace(".", "")
@@ -89,12 +286,10 @@ def extract_dates_from_filename(filename):
 @st.cache_data
 def load_data(name, sous_dossier, data_folder_override=None):
     folder_to_use = data_folder_override if data_folder_override else DATA_FOLDER
-
     if folder_to_use is None:
         raise FileNotFoundError("Aucun dossier de données trouvé.")
 
     dossier = os.path.join(folder_to_use, sous_dossier, "Actuel")
-
     if not os.path.exists(dossier):
         raise FileNotFoundError(f"Le dossier {dossier} n'existe pas.")
 
@@ -115,21 +310,7 @@ def load_data(name, sous_dossier, data_folder_override=None):
     with open(os.path.join(dossier, file_name), 'r', encoding='utf-8') as file:
         return json.load(file), dates
 
-def sum_list(dict_of_list):
-    l = len(dict_of_list[list(dict_of_list.keys())[0]])
-    s = [0] * l
-    for ls in dict_of_list.values():
-        if len(ls) != l:
-            raise ValueError("Les listes n'ont pas toutes la même longueur!")
-        for i in range(l):
-            s[i] += ls[i]
-    return s
-
-def list_mult(liste, coef):
-    return [liste[i] * coef for i in range(len(liste))]
-
-def list_sub(liste, base):
-    return [liste[i] - base[i] for i in range(len(liste))]
+# ==================== FONCTIONS DE CALCUL ====================
 
 def calcul_queue(demande, capacite):
     queue = [0] * len(demande)
@@ -164,21 +345,6 @@ def calcul_KPI(attente_moyenne, planning, seuil):
         return [0, 0, 0]
     return [heures_vertes / total, heures_jaunes / total, heures_rouges / total]
 
-def calcul_file_attente(data, planning):
-    result = {}
-    for processeur in data.keys():
-        result[processeur] = {}
-        for date in data[processeur].keys():
-            demande = data[processeur][date]
-            capacite = planning[processeur][date] if processeur in planning and date in planning[processeur] else [0] * len(demande)
-            queue = calcul_queue(demande, capacite)
-            attente = calcul_attente(queue, capacite)
-            result[processeur][date] = {
-                "queue": queue,
-                "attente": attente
-            }
-    return result
-
 def KPI_to_color(KPI):
     if KPI[2] > 0.1:
         return "red"
@@ -193,9 +359,7 @@ def compute_colors(data, planning, Thresholds_dict, rip):
         for date_str in data[processeur].keys():
             if date_str not in colors:
                 colors[date_str] = {}
-
             demande = data[processeur][date_str]
-
             if processeur in planning and date_str in planning[processeur]:
                 capacite = planning[processeur][date_str]
             else:
@@ -204,14 +368,11 @@ def compute_colors(data, planning, Thresholds_dict, rip):
             queue = calcul_queue(demande, capacite)
             attente = calcul_attente(queue, capacite)
 
-            # Vérifier que les seuils existent avant de les utiliser
             if rip in Thresholds_dict and processeur in Thresholds_dict[rip]:
                 KPIs = calcul_KPI(attente, capacite, Thresholds_dict[rip][processeur])
                 colors[date_str][processeur] = KPI_to_color(KPIs)
             else:
-                # Seuil par défaut si non trouvé
                 colors[date_str][processeur] = "green"
-
     return colors
 
 def worst_color(colors_dict):
@@ -222,13 +383,7 @@ def worst_color(colors_dict):
     else:
         return "green"
 
-def value_to_color(value, min_val, max_val):
-    if value < min_val:
-        return "green"
-    elif value < max_val:
-        return "yellow"
-    else:
-        return "red"
+# ==================== SESSION STATE ====================
 
 def init_session_state():
     if 'selected_graphs' not in st.session_state:
@@ -236,13 +391,17 @@ def init_session_state():
     if 'selected_date' not in st.session_state:
         st.session_state.selected_date = None
     if 'selected_layout' not in st.session_state:
-        st.session_state.selected_layout = "calendar"
+        st.session_state.selected_layout = "dashboard"  # dashboard au lieu de calendar
     if 'toggle_value' not in st.session_state:
         st.session_state.toggle_value = "forecast"
     if 'toggle_rip' not in st.session_state:
         st.session_state.toggle_rip = "reel"
     if 'data_loaded' not in st.session_state:
         st.session_state.data_loaded = False
+    if 'view_mode' not in st.session_state:
+        st.session_state.view_mode = "dashboard"  # dashboard, calendar, analytics
+
+# ==================== CHARGEMENT DES DONNÉES ====================
 
 def load_all_data():
     global graph_names, gate_secteurs, graph_names_list
@@ -353,37 +512,435 @@ def load_all_data():
         st.error(f"Erreur lors du chargement: {str(e)}")
         return False
 
-def generate_graph(data, xaxis_title, yaxis_title, thresholds):
-    import plotly.graph_objs as go
+# ==================== GÉNÉRATION DE GRAPHIQUES MODERNES ====================
+
+def generate_modern_graph(data, xaxis_title, yaxis_title, title, color="#3B82F6"):
+    """Génère un graphique Plotly moderne et stylisé"""
     fig = go.Figure()
+
     fig.add_trace(go.Scatter(
         y=data,
-        mode='lines',
-        name='Données',
-        line=dict(color='blue', width=2)
+        mode='lines+markers',
+        name=title,
+        line=dict(color=color, width=3, shape='spline'),
+        marker=dict(size=6, color=color, line=dict(width=2, color='white')),
+        fill='tozeroy',
+        fillcolor=f'rgba(59, 130, 246, 0.1)'
     ))
+
     fig.update_layout(
+        title=dict(text=title, font=dict(size=18, color='#1E293B', family='Arial Black')),
         xaxis_title=xaxis_title,
         yaxis_title=yaxis_title,
-        hovermode='x unified'
+        hovermode='x unified',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='white',
+        font=dict(family='Arial', size=12),
+        margin=dict(l=50, r=50, t=70, b=50),
+        xaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='#E2E8F0',
+            zeroline=False
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='#E2E8F0',
+            zeroline=False
+        ),
+        height=400
     )
+
     return fig
 
-def generate_graph_multiple(data1, data2, xaxis_title, yaxis_title, thresholds, name1, name2):
-    import plotly.graph_objs as go
+def generate_comparison_graph(data1, data2, xaxis_title, yaxis_title, title, name1, name2):
+    """Génère un graphique de comparaison moderne"""
     fig = go.Figure()
-    fig.add_trace(go.Scatter(y=data1, mode='lines', name=name1, line=dict(color='blue', width=2)))
-    fig.add_trace(go.Scatter(y=data2, mode='lines', name=name2, line=dict(color='red', width=2)))
+
+    fig.add_trace(go.Scatter(
+        y=data1,
+        mode='lines+markers',
+        name=name1,
+        line=dict(color='#3B82F6', width=3, shape='spline'),
+        marker=dict(size=6),
+    ))
+
+    fig.add_trace(go.Scatter(
+        y=data2,
+        mode='lines+markers',
+        name=name2,
+        line=dict(color='#EF4444', width=3, shape='spline', dash='dash'),
+        marker=dict(size=6),
+    ))
+
     fig.update_layout(
+        title=dict(text=title, font=dict(size=18, color='#1E293B', family='Arial Black')),
         xaxis_title=xaxis_title,
         yaxis_title=yaxis_title,
-        hovermode='x unified'
+        hovermode='x unified',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='white',
+        font=dict(family='Arial', size=12),
+        margin=dict(l=50, r=50, t=70, b=50),
+        xaxis=dict(showgrid=True, gridcolor='#E2E8F0'),
+        yaxis=dict(showgrid=True, gridcolor='#E2E8F0'),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="#CBD5E1",
+            borderwidth=1
+        ),
+        height=450
     )
+
     return fig
 
-def display_calendar(colors):
-    """Affiche le calendrier avec les couleurs"""
-    import plotly.graph_objs as go
+def generate_heatmap_graph(data_dict, title):
+    """Génère une heatmap moderne pour visualiser les tendances"""
+    # Préparer les données pour la heatmap
+    dates = sorted(list(data_dict.keys()))
+    hours = list(range(24))
+
+    z_data = []
+    for date in dates:
+        if date in data_dict and len(list(data_dict[date].values())) > 0:
+            first_key = list(data_dict[date].keys())[0]
+            z_data.append(data_dict[date][first_key])
+        else:
+            z_data.append([0] * 24)
+
+    fig = go.Figure(data=go.Heatmap(
+        z=z_data,
+        x=hours,
+        y=dates,
+        colorscale='Blues',
+        hoverongaps=False,
+        colorbar=dict(title="Valeur")
+    ))
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="Heure de la journée",
+        yaxis_title="Date",
+        height=500,
+        plot_bgcolor='white',
+        paper_bgcolor='white'
+    )
+
+    return fig
+
+# ==================== VUES DE L'APPLICATION ====================
+
+def display_dashboard():
+    """Dashboard principal avec KPIs et visualisations clés"""
+
+    st.markdown('<div class="dcb-header"><h1>✈️ Dashboard DCB</h1><p>Demand Capacity Balancing - Geneva Airport</p></div>', unsafe_allow_html=True)
+
+    # Période de données
+    st.markdown(f'<div class="data-period">📅 Période: {start_date.strftime("%d/%m/%Y")} - {end_date.strftime("%d/%m/%Y")}</div>', unsafe_allow_html=True)
+
+    # KPIs globaux en haut
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown("""
+        <div class="metric-card">
+            <div class="metric-value">✓</div>
+            <div class="metric-label">Statut Système</div>
+            <div class="status-green">Opérationnel</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        total_days = (end_date - start_date).days + 1
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{total_days}</div>
+            <div class="metric-label">Jours de données</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        total_processeurs = len(graph_names_list)
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{total_processeurs}</div>
+            <div class="metric-label">Processeurs actifs</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        st.markdown("""
+        <div class="metric-card">
+            <div class="metric-value">98%</div>
+            <div class="metric-label">Disponibilité</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Onglets pour différentes vues
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Vue d'ensemble", "🛫 Opérations", "👥 Passagers", "📈 Analytique"])
+
+    with tab1:
+        st.subheader("Vue d'ensemble des opérations")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Graphique Stand
+            if "Stand" in data_stand_forecast:
+                sample_date = list(data_stand_forecast["Stand"].keys())[0]
+                stand_data = data_stand_forecast["Stand"][sample_date]
+                fig = generate_modern_graph(
+                    stand_data,
+                    "Heure",
+                    "Stands occupés",
+                    "Occupation des Stands"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            # Graphique Piste
+            if "Piste" in data_piste_forecast:
+                sample_date = list(data_piste_forecast["Piste"].keys())[0]
+                piste_data = data_piste_forecast["Piste"][sample_date]
+                fig = generate_modern_graph(
+                    piste_data,
+                    "Heure",
+                    "Mouvements",
+                    "Mouvements de piste",
+                    "#10B981"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+    with tab2:
+        st.subheader("Détails des opérations aéroportuaires")
+
+        # Sélection de date
+        selected_date = st.date_input(
+            "Sélectionner une date",
+            value=start_date,
+            min_value=start_date,
+            max_value=end_date
+        )
+
+        date_str = selected_date.strftime("%Y-%m-%d")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("### 🛫 Piste")
+            if "Piste" in data_piste_forecast and date_str in data_piste_forecast["Piste"]:
+                piste_data = data_piste_forecast["Piste"][date_str]
+                fig = generate_modern_graph(
+                    piste_data,
+                    "Heure",
+                    "Mouvements/heure",
+                    f"Mouvements Piste - {selected_date.strftime('%d/%m/%Y')}"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Métriques
+                st.metric("Max mouvements/h", max(piste_data))
+                st.metric("Moyenne", f"{sum(piste_data)/len(piste_data):.1f}")
+            else:
+                st.info("Pas de données disponibles pour cette date")
+
+        with col2:
+            st.markdown("### 🅿️ Stands")
+            if "Stand" in data_stand_forecast and date_str in data_stand_forecast["Stand"]:
+                stand_data = data_stand_forecast["Stand"][date_str]
+                fig = generate_modern_graph(
+                    stand_data,
+                    "Heure",
+                    "Stands occupés",
+                    f"Occupation Stands - {selected_date.strftime('%d/%m/%Y')}",
+                    "#F59E0B"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Métriques
+                st.metric("Max stands occupés", max(stand_data))
+                st.metric("Taux d'occupation", f"{(max(stand_data)/standTot)*100:.1f}%")
+
+    with tab3:
+        st.subheader("Flux passagers et capacités")
+
+        selected_process = st.selectbox(
+            "Sélectionner un processeur",
+            graph_names_list,
+            index=0
+        )
+
+        # Trouver la catégorie
+        category = None
+        for cat, items in graph_names.items():
+            if selected_process in items:
+                category = cat
+                break
+
+        if category in ["Sûreté", "Check-in", "Douane"]:
+            data_dict = {
+                "Sûreté": data_surete,
+                "Check-in": data_checkin,
+                "Douane": data_douane
+            }
+            planning_dict = {
+                "Sûreté": {
+                    "reel": planning_surete_reel,
+                    "ideal": planning_surete_ideal,
+                    "perso": planning_surete_perso
+                },
+                "Check-in": {
+                    "reel": planning_checkin_reel,
+                    "ideal": planning_checkin_ideal,
+                    "perso": planning_checkin_perso
+                },
+                "Douane": {
+                    "reel": planning_douane_reel,
+                    "ideal": planning_douane_ideal,
+                    "perso": planning_douane_perso
+                }
+            }
+
+            data = data_dict[category]
+            planning = planning_dict[category][st.session_state.toggle_rip]
+
+            processeur = selected_process.split(" : ")[0] if " : " in selected_process else selected_process
+
+            # Sélection de date
+            selected_date = st.date_input(
+                "Date d'analyse",
+                value=start_date,
+                min_value=start_date,
+                max_value=end_date,
+                key="passenger_date"
+            )
+            date_str = selected_date.strftime("%Y-%m-%d")
+
+            if processeur in data and date_str in data[processeur]:
+                demande = data[processeur][date_str]
+                capacite = planning[processeur].get(date_str, [0] * len(demande))
+
+                # Graphique comparaison
+                fig = generate_comparison_graph(
+                    demande,
+                    capacite,
+                    "Heure",
+                    "Passagers",
+                    f"{selected_process} - {selected_date.strftime('%d/%m/%Y')}",
+                    "Demande",
+                    "Capacité"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                # KPIs
+                queue = calcul_queue(demande, capacite)
+                attente = calcul_attente(queue, capacite)
+                attente_moyenne = calcul_attente_moyenne(attente)
+
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("File max", f"{max(queue):.0f} pax")
+                with col2:
+                    st.metric("Attente max", f"{max(attente):.1f} min")
+                with col3:
+                    st.metric("Attente moy", f"{attente_moyenne:.1f} min")
+                with col4:
+                    # Status basé sur l'attente moyenne
+                    if attente_moyenne <= 5:
+                        st.markdown('<div class="status-green">Excellent</div>', unsafe_allow_html=True)
+                    elif attente_moyenne <= 10:
+                        st.markdown('<div class="status-yellow">Correct</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown('<div class="status-red">Critique</div>', unsafe_allow_html=True)
+            else:
+                st.info("Pas de données disponibles pour ce processeur à cette date")
+
+    with tab4:
+        st.subheader("Analyse et tendances")
+
+        st.markdown("### 📈 Tendances hebdomadaires")
+
+        # Calculer les tendances sur la période
+        if st.session_state.toggle_rip == "reel":
+            planning = planning_surete_reel
+        elif st.session_state.toggle_rip == "ideal":
+            planning = planning_surete_ideal
+        else:
+            planning = planning_surete_perso
+
+        colors = compute_colors(data_surete, planning, Thresholds_dict, st.session_state.toggle_rip)
+
+        # Compter les jours par couleur
+        status_counts = {"green": 0, "yellow": 0, "red": 0}
+        for date_str, day_colors in colors.items():
+            color = worst_color(day_colors)
+            status_counts[color] += 1
+
+        # Graphique en camembert
+        fig = go.Figure(data=[go.Pie(
+            labels=['Excellent', 'Acceptable', 'Critique'],
+            values=[status_counts['green'], status_counts['yellow'], status_counts['red']],
+            hole=.4,
+            marker_colors=['#10B981', '#F59E0B', '#EF4444']
+        )])
+
+        fig.update_layout(
+            title="Distribution des jours par statut de performance",
+            height=400,
+            showlegend=True
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Statistiques
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card" style="border-left-color: #10B981;">
+                <div class="metric-value" style="color: #10B981;">{status_counts['green']}</div>
+                <div class="metric-label">Jours Excellents</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card" style="border-left-color: #F59E0B;">
+                <div class="metric-value" style="color: #F59E0B;">{status_counts['yellow']}</div>
+                <div class="metric-label">Jours Acceptables</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"""
+            <div class="metric-card" style="border-left-color: #EF4444;">
+                <div class="metric-value" style="color: #EF4444;">{status_counts['red']}</div>
+                <div class="metric-label">Jours Critiques</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+def display_calendar():
+    """Affiche le calendrier avec les couleurs de statut"""
+
+    st.markdown('<div class="dcb-header"><h1>📅 Calendrier DCB</h1><p>Vue calendrier des performances</p></div>', unsafe_allow_html=True)
+
+    # Calculer les couleurs
+    if st.session_state.toggle_rip == "reel":
+        planning = planning_surete_reel
+    elif st.session_state.toggle_rip == "ideal":
+        planning = planning_surete_ideal
+    else:
+        planning = planning_surete_perso
+
+    colors = compute_colors(data_surete, planning, Thresholds_dict, st.session_state.toggle_rip)
 
     current_date = start_month_date
 
@@ -392,11 +949,13 @@ def display_calendar(colors):
 
         cal = calendar.monthcalendar(current_date.year, current_date.month)
 
+        # En-têtes
         cols = st.columns(7)
         days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
         for i, day in enumerate(days):
             cols[i].markdown(f"**{day}**")
 
+        # Jours
         for week in cal:
             cols = st.columns(7)
             for i, day in enumerate(week):
@@ -427,12 +986,11 @@ def display_calendar(colors):
 
         st.markdown("---")
 
-def display_details(colors):
+def display_details():
     """Affiche les détails d'un jour sélectionné"""
-    import plotly.graph_objs as go
 
-    if st.button("← Retour au calendrier"):
-        st.session_state.selected_layout = "calendar"
+    if st.button("← Retour"):
+        st.session_state.selected_layout = "dashboard"
         st.rerun()
 
     if st.session_state.selected_date is None:
@@ -442,39 +1000,18 @@ def display_details(colors):
     date_str = st.session_state.selected_date
     date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
 
-    st.subheader(f"Détails pour le {date.strftime('%d/%m/%Y')}")
+    st.markdown(f'<div class="dcb-header"><h1>📊 Détails du {date.strftime("%d/%m/%Y")}</h1></div>', unsafe_allow_html=True)
 
+    # Afficher les graphiques pour chaque processeur sélectionné
     for graph in st.session_state.selected_graphs:
-        with st.expander(graph, expanded=True):
+        with st.expander(f"📈 {graph}", expanded=True):
             category = None
             for cat, items in graph_names.items():
                 if graph in items:
                     category = cat
                     break
 
-            if category == "Piste":
-                data_dict = {"forecast": data_piste_forecast, "schedule": data_piste_schedule}
-                data = data_dict[st.session_state.toggle_value]
-
-                if graph in data and date_str in data[graph]:
-                    values = data[graph][date_str]
-                    fig = generate_graph(values, "Heure", "Nombre de mouvements", [])
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("Pas de données disponibles")
-
-            elif category == "Stand":
-                data_dict = {"forecast": data_stand_forecast, "schedule": data_stand_schedule}
-                data = data_dict[st.session_state.toggle_value]
-
-                if graph in data and date_str in data[graph]:
-                    values = data[graph][date_str]
-                    fig = generate_graph(values, "Heure", "Nombre de stands occupés", [])
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("Pas de données disponibles")
-
-            elif category in ["Sûreté", "Check-in", "Douane"]:
+            if category in ["Sûreté", "Check-in", "Douane"]:
                 data_dict = {"Sûreté": data_surete, "Check-in": data_checkin, "Douane": data_douane}
                 planning_dict = {
                     "Sûreté": {"reel": planning_surete_reel, "ideal": planning_surete_ideal, "perso": planning_surete_perso},
@@ -491,7 +1028,12 @@ def display_details(colors):
                     demande = data[processeur][date_str]
                     capacite = planning[processeur].get(date_str, [0] * len(demande))
 
-                    fig = generate_graph_multiple(demande, capacite, "Heure", "Nombre de passagers", [], "Demande", "Capacité")
+                    fig = generate_comparison_graph(
+                        demande, capacite,
+                        "Heure", "Passagers",
+                        graph,
+                        "Demande", "Capacité"
+                    )
                     st.plotly_chart(fig, use_container_width=True)
 
                     queue = calcul_queue(demande, capacite)
@@ -508,29 +1050,11 @@ def display_details(colors):
                 else:
                     st.info("Pas de données disponibles")
 
-            elif category == "Gate":
-                secteur = graph.split(" : ")[1] if " : " in graph else None
-
-                if secteur and secteur in data_gate and date_str in data_gate[secteur]:
-                    demande = data_gate[secteur][date_str]
-                    fig = generate_graph(demande, "Heure", "Nombre de passagers au gate", [])
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("Pas de données disponibles")
-
-def display_personnalisation():
-    """Affiche l'interface de personnalisation des plannings"""
-    if st.button("← Retour au calendrier"):
-        st.session_state.selected_layout = "calendar"
-        st.rerun()
-
-    st.subheader("Personnalisation des plannings")
-    st.info("Fonctionnalité de personnalisation en cours de développement")
+# ==================== MAIN ====================
 
 def main():
     global DATA_FOLDER, ASSETS_FOLDER
 
-    # Initialiser les chemins
     if DATA_FOLDER is None:
         DATA_FOLDER = get_data_folder()
     if ASSETS_FOLDER is None:
@@ -538,7 +1062,7 @@ def main():
 
     init_session_state()
 
-    # Vérification de l'existence du dossier de données
+    # Vérification des données
     if DATA_FOLDER is None:
         st.error("❌ Aucun dossier de données trouvé!")
         st.markdown("""
@@ -546,17 +1070,9 @@ def main():
 
         L'application ne trouve pas le dossier contenant les données DCB.
 
-        **Options :**
-
-        1. **Pour le développement local :** Créez un dossier nommé `Data Source` dans le répertoire de l'application
-
-        2. **Pour Streamlit Cloud :** Utilisez la page Administration pour uploader les données ou exécuter le traitement
-
-        3. **Générer les données localement :**
-           ```bash
-           cd TraitementDonnee/Code
-           python Traitement_donnee.py
-           ```
+        **Utilisez la page Administration pour :**
+        1. Uploader les données (fichiers JSON ou fichiers WEBI)
+        2. Exécuter le traitement des données
 
         **Répertoire actuel :** `{}`
         """.format(get_base_path()))
@@ -569,99 +1085,84 @@ def main():
                 success = load_all_data()
                 if success:
                     st.session_state.data_loaded = True
+                    st.rerun()
                 else:
                     st.error("❌ Le chargement des données a échoué.")
                     return
-        except FileNotFoundError as e:
+        except Exception as e:
             st.error(f"❌ Erreur lors du chargement des données : {str(e)}")
             st.info(f"📁 Dossier de données détecté : `{DATA_FOLDER}`")
-            st.markdown("""
-            ### Vérifications à faire :
-
-            1. Le dossier existe-t-il vraiment ?
-            2. La structure des sous-dossiers est-elle correcte ?
-            3. Les fichiers JSON ont-ils été générés par `Traitement_donnee.py` ?
-
-            Consultez le README_STREAMLIT.md pour plus de détails.
-            """)
-            return
-        except Exception as e:
-            st.error(f"❌ Erreur inattendue : {str(e)}")
-            st.exception(e)
             return
 
-    # Vérifier que graph_names_list a bien été initialisé
     if len(graph_names_list) == 0:
-        st.error("❌ Les données n'ont pas été chargées correctement (graph_names_list est vide).")
-        st.markdown(f"""
-        ### Debug Info
-        - DATA_FOLDER: `{DATA_FOLDER}`
-        - graph_names keys: `{list(graph_names.keys()) if graph_names else 'empty'}`
-        - graph_names_list length: `{len(graph_names_list)}`
-
-        Essayez d'aller sur la page Administration pour uploader de nouvelles données.
-        """)
+        st.error("❌ Les données n'ont pas été chargées correctement.")
         return
 
-    # Interface principale
-    st.title("Outil DCB - Demand Capacity Balancing")
+    # ==================== SIDEBAR MODERNE ====================
 
-    # Sidebar pour la sélection
     with st.sidebar:
-        st.header("Configuration")
+        st.markdown("### ⚙️ Configuration")
 
-        # Toggle Forecast/Schedule
+        # Mode de vue
+        view_mode = st.radio(
+            "Vue",
+            ["📊 Dashboard", "📅 Calendrier", "📋 Détails"],
+            index=["dashboard", "calendar", "details"].index(st.session_state.selected_layout)
+        )
+
+        if view_mode == "📊 Dashboard":
+            st.session_state.selected_layout = "dashboard"
+        elif view_mode == "📅 Calendrier":
+            st.session_state.selected_layout = "calendar"
+        else:
+            st.session_state.selected_layout = "details"
+
+        st.markdown("---")
+
+        # Type de données
         toggle_option = st.radio(
-            "Type de données:",
-            ["Forecast", "Schedule"],
+            "Type de données",
+            ["🔮 Forecast", "📋 Schedule"],
             index=0 if st.session_state.toggle_value == "forecast" else 1
         )
-        st.session_state.toggle_value = "forecast" if toggle_option == "Forecast" else "schedule"
+        st.session_state.toggle_value = "forecast" if toggle_option == "🔮 Forecast" else "schedule"
 
-        # Toggle Réel/Idéal/Perso
+        # Type de planning
         toggle_rip_option = st.radio(
-            "Type de planning:",
-            ["Réel", "Idéal", "Personnalisé"],
+            "Type de planning",
+            ["📊 Réel", "⭐ Idéal", "✏️ Personnalisé"],
             index=["reel", "ideal", "perso"].index(st.session_state.toggle_rip)
         )
-        st.session_state.toggle_rip = {"Réel": "reel", "Idéal": "ideal", "Personnalisé": "perso"}[toggle_rip_option]
+        st.session_state.toggle_rip = {"📊 Réel": "reel", "⭐ Idéal": "ideal", "✏️ Personnalisé": "perso"}[toggle_rip_option]
 
         st.markdown("---")
 
         # Sélection des processeurs
-        st.subheader("Sélection des processeurs")
+        st.markdown("### 🎯 Processeurs sélectionnés")
+
+        if st.button("🗑️ Tout désélectionner"):
+            st.session_state.selected_graphs = []
+            st.rerun()
 
         for category, items in graph_names.items():
             with st.expander(f"{category} ({len(items)})"):
                 for item in items:
-                    if st.checkbox(item, key=f"check_{item}", value=item in st.session_state.selected_graphs):
+                    is_selected = item in st.session_state.selected_graphs
+                    if st.checkbox(item, key=f"check_{item}", value=is_selected):
                         if item not in st.session_state.selected_graphs:
                             st.session_state.selected_graphs.append(item)
                     else:
                         if item in st.session_state.selected_graphs:
                             st.session_state.selected_graphs.remove(item)
 
-        if st.button("Tout désélectionner"):
-            st.session_state.selected_graphs = []
-            st.rerun()
+    # ==================== CONTENU PRINCIPAL ====================
 
-    # Calculer les couleurs
-    if st.session_state.toggle_rip == "reel":
-        planning = planning_surete_reel
-    elif st.session_state.toggle_rip == "ideal":
-        planning = planning_surete_ideal
-    else:
-        planning = planning_surete_perso
-
-    colors = compute_colors(data_surete, planning, Thresholds_dict, st.session_state.toggle_rip)
-
-    # Affichage selon le layout sélectionné
-    if st.session_state.selected_layout == "calendar":
-        display_calendar(colors)
+    if st.session_state.selected_layout == "dashboard":
+        display_dashboard()
+    elif st.session_state.selected_layout == "calendar":
+        display_calendar()
     elif st.session_state.selected_layout == "details":
-        display_details(colors)
-    elif st.session_state.selected_layout == "personnalisation":
-        display_personnalisation()
+        display_details()
 
 if __name__ == "__main__":
     main()

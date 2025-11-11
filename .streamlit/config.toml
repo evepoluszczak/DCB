@@ -1,12 +1,23 @@
+[theme]
+primaryColor = "#1E3A8A"  # Bleu aviation profond
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F8FAFC"
+textColor = "#1E293B"
+font = "sans-serif"
+
 [server]
 headless = true
+port = 8501
+enableCORS = false
+enableXsrfProtection = true
 
-[theme]
-primaryColor = "#0066cc"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f0f2f6"
-textColor = "#262730"
-font = "sans serif"
+[browser]
+gatherUsageStats = false
 
 [client]
 showSidebarNavigation = true
+toolbarMode = "minimal"
+
+[runner]
+magicEnabled = true
+fastReruns = true
