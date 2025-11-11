@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 from pathlib import Path
+from chemin_dossier import CHEMIN_INPUT, CHEMIN_OUTPUT
 
 
 '''
@@ -29,7 +30,7 @@ def Historique():
        print("I am loading the realized flights")
        YEAR = datetime.now().year
 
-       path = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/WEBI")
+       path = CHEMIN_INPUT / "WEBI"
        data_flight = pd.read_csv(path / "DCB_BSH_link.csv",low_memory=False)
        data_flight["Date"] = pd.to_datetime(data_flight["Date"])
        data_flight["Local Schedule Time"] = data_flight["Local Schedule Time"].str[11:16]
@@ -124,9 +125,10 @@ def Historique():
        # 2-4. Grouper par les colonnes, calculer la moyenne de MTOW, puis arrondir
        conversion_MTOW = conversion_MTOW.groupby(['Airline IATA Code', 'Aircraft Subtype IATA Type'])['MTOW'].mean().round().astype(int).reset_index()
 
-       nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Output")
-       os.chdir(nouveau_repertoire)
-       data_flight.to_csv('PlanVol_Historique.csv', index=False)
-       conversion_MTOW.to_csv("Conversion_MTOW.csv", index=False)
-       Conversion_airline.to_csv("Conversion_airline.csv")
+       CHEMIN_OUTPUT.mkdir(parents=True, exist_ok=True)
+
+       # 2. Write files directly using the full path (no os.chdir)
+       data_flight.to_csv(CHEMIN_OUTPUT / 'PlanVol_Historique.csv', index=False)
+       conversion_MTOW.to_csv(CHEMIN_OUTPUT / "Conversion_MTOW.csv", index=False)
+       Conversion_airline.to_csv(CHEMIN_OUTPUT / "Conversion_airline.csv")
        return data_flight, conversion_MTOW, Conversion_airline
