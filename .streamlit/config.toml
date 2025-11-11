@@ -3,7 +3,7 @@ primaryColor = "#1E3A8A"  # Bleu aviation profond
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F8FAFC"
 textColor = "#1E293B"
-font = "sans-serif"
+font = "sans serif"
 
 [server]
 headless = true
