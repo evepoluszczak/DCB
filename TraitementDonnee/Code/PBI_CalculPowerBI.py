@@ -3,23 +3,39 @@ import pandas as pd
 from tqdm import tqdm
 import os
 from math import ceil
+from pathlib import Path # Ajouté pour la nouvelle gestion des chemins
+from chemin_dossier import CHEMIN_DATA_SOURCE, CHEMIN_OUTPUT # <-- Correction des imports
 
-DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source"
+# CORRECTION : Utilisation de la variable pathlib
+DATA_FOLDER = CHEMIN_DATA_SOURCE
 
 def load_data(name, sous_dossier):
-    # Parcourir les fichiers du dossier Actuel
-    dossier = os.path.join(DATA_FOLDER,sous_dossier,"Actuel")
-    for fichier in os.listdir(dossier):
-        if name in fichier:
-            file_name = fichier
+    # CORRECTION : Remplacement par la version pathlib
+    dossier_path = DATA_FOLDER / sous_dossier / "Actuel"
+    
+    # Gérer le cas où le dossier "Actuel" n'existe pas
+    if not dossier_path.exists():
+        print(f"Dossier 'Actuel' non trouvé : {dossier_path}")
+        return None # Retourner None pour éviter une erreur
+
+    target_file = None
+    # CORRECTION : Utilisation de iterdir() pour les objets Path
+    for fichier_path in dossier_path.iterdir():
+        if name in fichier_path.name:
+            target_file = fichier_path
             break
-    with open(os.path.join(dossier,file_name), 'r', encoding='utf-8') as file:
-        return json.load(file)
+    
+    if target_file:
+        with open(target_file, 'r', encoding='utf-8') as file: # target_file est déjà le chemin complet
+            return json.load(file)
+    else:
+        print(f"Aucun fichier contenant '{name}' trouvé dans '{dossier_path}'")
+        return None # Gérer le cas où aucun fichier n'est trouvé
 
 def melt_df(df, value_name):
     return df.melt(id_vars='Date et heure', 
-                   var_name='Processeur', 
-                   value_name=value_name)
+                    var_name='Processeur', 
+                    value_name=value_name)
 
 def list_mult(liste, coef):
     res = []
@@ -87,6 +103,7 @@ def CalculPBI():
     planning_surete = load_data("PlanningSurete","Capacite/Planning")
     planning_surete_ideal = load_data("PlanningSureteIdeal","Capacite/Planning")
 
+    # CORRECTION : Gestion de l'IndexError si les fichiers sont vides
     checkin_zone = list(list(data_checkin.values())[0].keys()) if data_checkin else []
     surete_zone = list(list(data_surete.values())[0].keys()) if data_surete else []
     douane_zone = list(list(data_douane.values())[0].keys()) if data_douane else []
@@ -115,6 +132,15 @@ def CalculPBI():
     PISTE_THRESHOLDS = load_data("CapacitePiste", "Capacite/Aeroport")
     GATE_THRESHOLDS = load_data("CapaciteGate", "Capacite/Aeroport")
     stand_ouv = load_data("StandDispo", "Capacite/Aeroport")
+    
+    # S'assurer que les données sont chargées avant de continuer
+    if not all([data_stand, data_piste, data_surete, data_checkin, planning_checkin, 
+                data_douane, planning_douane, planning_douane_ideal, data_gate, 
+                embarquement_gate, planning_surete, planning_surete_ideal, 
+                TEMPS_PROCESS, LOS, PISTE_THRESHOLDS, GATE_THRESHOLDS, stand_ouv]):
+        print("Erreur : Un ou plusieurs fichiers JSON n'ont pas pu être chargés. Arrêt de CalculPBI.")
+        return
+
     standTot = sum(stand_ouv.values()) + stand_ouv["Dv"] + stand_ouv["Ev"]
     standC = stand_ouv["Cf"] + 2*stand_ouv["Dv"] + 2*stand_ouv["Ev"]
     standD = stand_ouv["Df"] + stand_ouv["Dv"]
@@ -177,7 +203,9 @@ def CalculPBI():
         else:
             seuil.loc[len(seuil)] = [key,value[0],value[1]]
 
-    seuil.to_csv("//gva.tld/aig/O/12_EM-DO/4_OOP/17_PBI/02 - Dashboards en développement/EPL/15. DCB/Power BI DCB/Power BI DCB/Data/seuil.csv",index=False)
+    # CORRECTION : Remplacement du chemin en dur par le CHEMIN_OUTPUT
+    CHEMIN_OUTPUT.mkdir(parents=True, exist_ok=True)
+    seuil.to_csv(CHEMIN_OUTPUT / "seuil.csv", index=False)
 
     demande = demande.reset_index()
     planning = planning.reset_index()
@@ -210,13 +238,22 @@ def CalculPBI():
         for processeur in planning_columns:
             demande_proc = demande_jour[processeur].to_list()
             planning_proc = planning_jour[processeur].to_list()
-            capacite_proc = list_mult(planning_proc,float(5/temps.loc[temps["Processeur"]==processeur,"Temps de process"].iloc[0]))
-            queue_proc = calcul_queue(demande_proc,capacite_proc)
-            attente_proc = calcul_attente(queue_proc,capacite_proc)
-            capacite.loc[capacite["Date"]==date,processeur] = capacite_proc
-            queue.loc[queue["Date"]==date,processeur] = queue_proc
-            attente.loc[attente["Date"]==date,processeur] = attente_proc
-    #        couleurs.loc[couleurs["Date"]==date,processeur] = value_to_color(attente_proc,processeur,seuil)
+            # CORRECTION : S'assurer que le processeur existe dans `temps`
+            temps_process_row = temps.loc[temps["Processeur"]==processeur]
+            if not temps_process_row.empty:
+                temps_de_process = float(temps_process_row["Temps de process"].iloc[0])
+                capacite_proc = list_mult(planning_proc, (5 / temps_de_process) if temps_de_process != 0 else 0)
+                queue_proc = calcul_queue(demande_proc,capacite_proc)
+                attente_proc = calcul_attente(queue_proc,capacite_proc)
+                capacite.loc[capacite["Date"]==date,processeur] = capacite_proc
+                queue.loc[queue["Date"]==date,processeur] = queue_proc
+                attente.loc[attente["Date"]==date,processeur] = attente_proc
+            else:
+                print(f"Avertissement : Processeur '{processeur}' non trouvé dans 'temps'.")
+                capacite.loc[capacite["Date"]==date,processeur] = [0] * len(demande_proc)
+                queue.loc[queue["Date"]==date,processeur] = [0] * len(demande_proc)
+                attente.loc[attente["Date"]==date,processeur] = [0] * len(demande_proc)
+    #        couleurs.loc[couleurs["Date"]==date,processeur] = value_to_color(attente_proc,processeur,seuil)
 
     attente.drop(columns="Date",inplace=True)
     attente_moyenne = attente.rolling(window=7, center=True, min_periods=1).mean()
@@ -226,26 +263,36 @@ def CalculPBI():
     for date in attente_moyenne["Date"].drop_duplicates().to_list():
         for processeur in planning_columns:
             amdp = attente_moyenne.loc[(capacite["Date"]==date)&(capacite[processeur]!=0),processeur]
-            seuil_proc = seuil[seuil["Processeur"]==processeur].iloc[0].to_list()
-            tot_ouv = len(amdp)
-            if tot_ouv != 0:
-                plus_seuil_80 = (amdp<=seuil_proc[1]).sum()
-                plus_seuil_99 = (amdp<=seuil_proc[2]).sum()
-                pcs80 = plus_seuil_80/tot_ouv
-                pcs99 = plus_seuil_99/tot_ouv
+            
+            seuil_proc_row = seuil[seuil["Processeur"]==processeur]
+            if not seuil_proc_row.empty:
+                seuil_proc = seuil_proc_row.iloc[0].to_list()
+                tot_ouv = len(amdp)
+                if tot_ouv != 0:
+                    plus_seuil_80 = (amdp<=seuil_proc[1]).sum()
+                    plus_seuil_99 = (amdp<=seuil_proc[2]).sum()
+                    pcs80 = plus_seuil_80/tot_ouv
+                    pcs99 = plus_seuil_99/tot_ouv
+                else:
+                    pcs80 = 1
+                    pcs99 = 1
+                pourcentage_seuil_80.loc[pourcentage_seuil_80["Date"]==date,processeur] = pcs80
+                pourcentage_seuil_99.loc[pourcentage_seuil_99["Date"]==date,processeur] = pcs99
+                alerte_seuil_80.loc[alerte_seuil_80["Date"]==date,processeur] = int((pcs80 < 0.8)) + int((pcs80 < 0.89))
+                alerte_seuil_99.loc[alerte_seuil_99["Date"]==date,processeur] = int((pcs99 < 0.96)) + int((pcs99 < 0.98))
             else:
-                pcs80 = 1
-                pcs99 = 1
-            pourcentage_seuil_80.loc[pourcentage_seuil_80["Date"]==date,processeur] = pcs80
-            pourcentage_seuil_99.loc[pourcentage_seuil_99["Date"]==date,processeur] = pcs99
-            alerte_seuil_80.loc[alerte_seuil_80["Date"]==date,processeur] = int((pcs80 < 0.8)) + int((pcs80 < 0.89))
-            alerte_seuil_99.loc[alerte_seuil_99["Date"]==date,processeur] = int((pcs99 < 0.96)) + int((pcs99 < 0.98))
+                # Gérer le cas où le processeur n'est pas dans `seuil`
+                pourcentage_seuil_80.loc[pourcentage_seuil_80["Date"]==date,processeur] = 1
+                pourcentage_seuil_99.loc[pourcentage_seuil_99["Date"]==date,processeur] = 1
+                alerte_seuil_80.loc[alerte_seuil_80["Date"]==date,processeur] = 0
+                alerte_seuil_99.loc[alerte_seuil_99["Date"]==date,processeur] = 0
+
 
     #for processeur in missing_columns:
-    #    couleurs[processeur] = value_to_color(demande[processeur].to_list(),processeur,seuil)
+    #    couleurs[processeur] = value_to_color(demande[processeur].to_list(),processeur,seuil)
     #for processeur in list(graph_names.keys())[:4]:
-    #    for date in couleurs["Date et heure"].to_list():
-    #        couleurs.loc[couleurs["Date et heure"]==date,processeur] = worst_color(couleurs.loc[couleurs["Date et heure"] == date,[processeur + " : " + s for s in graph_names[processeur]]].iloc[0].to_list())
+    #    for date in couleurs["Date et heure"].to_list():
+    #        couleurs.loc[couleurs["Date et heure"]==date,processeur] = worst_color(couleurs.loc[couleurs["Date et heure"] == date,[processeur + " : " + s for s in graph_names[processeur]]].iloc[0].to_list())
 
     capacite = capacite.reset_index()
     queue = queue.reset_index()
@@ -295,5 +342,5 @@ def CalculPBI():
     for processeur in temps["Processeur"].to_list():
         df_final.loc[df_final["Processeur"]==processeur,"Temps de process"] = temps.loc[temps["Processeur"]==processeur, "Temps de process"].iloc[0]
 
-
-    df_final.to_csv("//gva.tld/aig/O/12_EM-DO/4_OOP/17_PBI/02 - Dashboards en développement/EPL/15. DCB/Power BI DCB/Power BI DCB/Data/global.csv",index=False)
+    # CORRECTION : Remplacement du chemin en dur par le CHEMIN_OUTPUT
+    df_final.to_csv(CHEMIN_OUTPUT / "global.csv", index=False)
