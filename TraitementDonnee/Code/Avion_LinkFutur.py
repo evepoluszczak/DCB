@@ -7,15 +7,16 @@ import tqdm
 
 import Avion_Fonctions_data_future
 import Avion_Fonctions_LX
+from chemin_dossier import CHEMIN_INPUT, CHEMIN_OUTPUT 
 
 def Futur(data):
     # Copie les fichiers de planification easyjet dans le bon dossier avec un nom adapté
     dossier_planning_EZS_PBI = "//gva.tld/aig/O/12_EM-DO/4_OOP/17_PBI/01 - Data/02 - Data/Airlines/EasyJet/EasyJet - SSIM/Easyjet_SSIM_xlsx"
-    dossier_planning_EZS_DCB = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Planning_EZS"
+    dossier_planning_EZS_DCB = CHEMIN_INPUT / "Planning_EZS"
     Avion_Fonctions_data_future.copier_et_renommer_fichiers(dossier_planning_EZS_PBI,dossier_planning_EZS_DCB)
 
     # Chargement du fichier
-    path = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/WEBI")
+    path = CHEMIN_INPUT / "WEBI"
     data_flight = pd.read_csv(path / "DCB_BSH_futur.csv",low_memory=False)
 
     data_flight["Gate OOP+"] = data_flight["Gate OOP+"].astype(str)
@@ -72,8 +73,8 @@ def Futur(data):
 
     #dico_CS, dico_CS_summer, dico_CS_inv, dico_CS_inv_summer, dico_dest, dico_dest_summer, dico_CS_NS, dico_CS_NS_summer, dico_dest_NS, dico_dest_NS_summer, liste_NS, liste_NNS, liste_NS_summer, liste_NNS_summer = Fonctions_data_future.creation_from_histo()
 
-    nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Output")
-    os.chdir(nouveau_repertoire)
+    #nouveau_repertoire = Path(chemin_app + "TraitementDonnee/Data/Output")
+    #os.chdir(nouveau_repertoire)
 
     data = data.loc[data['Airline IATA Code'] == 'LX']
     liste_columns = ['Date_ARR', 'Date_DEP', 'Call Sign - IATA_ARR', 'Aircraft Subtype IATA Type', 
@@ -255,8 +256,8 @@ def Futur(data):
     data_end.loc[data_end['Date_ARR'] != data_end['Date_DEP'], 'Night Stop_OOP+'] = 'Y'
 
 
-    nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Output")
-    os.chdir(nouveau_repertoire)
+    #nouveau_repertoire = Path(chemin_app + "TraitementDonnee/Data/Output")
+    #os.chdir(nouveau_repertoire)
     data_end.to_csv('PlanVol_Futur.csv', index=False)
     data_GCO.to_csv('Link_Futur.csv', index = False)
 
