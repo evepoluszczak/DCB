@@ -19,6 +19,8 @@ import os
 import json
 import re
 import shutil
+# CORRECTION : Suppression de 'chemin_app', ajout de 'CHEMIN_DATA_SOURCE'
+from chemin_dossier import CHEMIN_AUTRE, CHEMIN_OUTPUT, CHEMIN_DATA_SOURCE
 
 def first_change(data):
     
@@ -79,7 +81,7 @@ def get_matrice_data (data) :
         k += 1
 
     data_occupation_schedule[str(current_day)[:10]] = liste_jour1
-    data_occupation_pred[str(current_day)[:10]] = liste_jour2        
+    data_occupation_pred[str(current_day)[:10]] = liste_jour2         
 
     return data_occupation_schedule, data_occupation_pred
 
@@ -174,7 +176,7 @@ def algo(data, data_test_future, n_xgb, n_rf, m_xgb, m_rf, value, variable, eta0
 
     y_pred_train = model.predict(X_train)
 
-    data["leaf"] = model.apply(X_train)  
+    data["leaf"] = model.apply(X_train) 
     data["y_pred"] = y_pred_train
 
     
@@ -184,7 +186,7 @@ def algo(data, data_test_future, n_xgb, n_rf, m_xgb, m_rf, value, variable, eta0
     liste = [element for sous_liste in liste for element in sous_liste]
 
     ind = {"indexes" : list(data.index),
-              "indices" : range(len(data.index))}
+            "indices" : range(len(data.index))}
 
     liste = [ind["indices"][ind["indexes"].index(element)] for element in liste]
 
@@ -243,23 +245,32 @@ def algo(data, data_test_future, n_xgb, n_rf, m_xgb, m_rf, value, variable, eta0
     
     return data_test_future, pred, liste_vid_keep
 
-def deplacer_fichier(nom_cible, super_dossier, sous_dossier = None):
-    # Obtenir le chemin absolu des dossiers
-    chemin_actuel = os.path.join(super_dossier, 'Actuel')
-    chemin_historique = os.path.join(super_dossier, 'Historique')
+# CORRECTION : Remplacement par la version pathlib
+def deplacer_fichier(nom_cible, super_dossier: Path, sous_dossier: str = None):
+    chemin_actuel = super_dossier / 'Actuel'
+    chemin_historique = super_dossier / 'Historique'
     if sous_dossier:
-        chemin_historique = os.path.join(chemin_historique,sous_dossier)
+        chemin_historique = chemin_historique / sous_dossier
+
+    # S'assurer que le dossier de destination existe
+    chemin_historique.mkdir(parents=True, exist_ok=True)
 
     # Expression régulière : date + nom + date-date.json
     pattern = re.compile(rf'^(\d{{12}}){re.escape(nom_cible)}(\d{{8}}-\d{{8}})\.json$')
 
-    # Parcourir les fichiers du dossier Actuel
-    for fichier in os.listdir(chemin_actuel):
-        if pattern.match(fichier):
-            source = os.path.join(chemin_actuel, fichier)
-            destination = os.path.join(chemin_historique, fichier)
+    # Gérer le cas où le dossier "Actuel" n'existe pas
+    if not chemin_actuel.exists():
+        print(f"Dossier 'Actuel' non trouvé : {chemin_actuel}")
+        return
+
+    # Parcourir les fichiers du dossier Actuel avec iterdir()
+    for fichier_path in chemin_actuel.iterdir():
+        fichier_nom = fichier_path.name
+        if pattern.match(fichier_nom):
+            source = fichier_path
+            destination = chemin_historique / fichier_nom
             shutil.move(source, destination)
-            print(f"Fichier déplacé : {fichier}")
+            print(f"Fichier déplacé : {fichier_nom}")
             return
 
     print(f"Aucun fichier correspondant à '{nom_cible}' trouvé dans '{chemin_actuel}'.")
@@ -269,8 +280,9 @@ def Delai(conversion, conversion_airline, data, data_future):
     # --------------------------------------
     # Infos about distance 
     # --------------------------------------
-    distance = pd.read_csv("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Autre/Distance.csv")
-    conversion_aero = pd.read_excel("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Autre/Conversion_aero.xlsx")
+    # (Ces lignes étaient déjà correctes)
+    distance = pd.read_csv(CHEMIN_AUTRE / "Distance.csv")
+    conversion_aero = pd.read_excel(CHEMIN_AUTRE / "Conversion_aero.xlsx")
 
     distance = distance.loc[distance["DEST"]=="GVA"]
 
@@ -278,60 +290,60 @@ def Delai(conversion, conversion_airline, data, data_future):
     conversion_aero = dict(zip(conversion_aero['Official ICAO Airport Code'], conversion_aero['Official IATA Airport Code']))
 
     correspondance = {"AJA" : 526,
-                    "ATH" : 6861,
-                    "AYT" : 2291,
-                    "BDS" : 5383,
-                    "DJE" : 175,
-                    "DME" : 2430,
-                    "GVA" : 0,
-                    "HER" : 4855,
-                    "HRG" : 3226,
-                    "KGS" : 2031,
-                    "KLX" : 1666,
-                    "LCY" : 734,
-                    "LED" : 2190,
-                    "OLB" : 7846,
-                    "OSL" : 1588,
-                    "PDL" : 2772,
-                    "SKG" : 1502,
-                    "ZAG" : 772,
-                    "ZTH" : 1541,
-                    "ACE" : 343.92,
-                    "ADB" : 1938.56,
-                    "AGA" : 2221.46,
-                    "AHO" : 648.28,
-                    "AOI" : 641.68,
-                    "AQJ" : 3112.9,
-                    "BEG" : 1116.6,
-                    "BIA" : 474.94,
-                    "BIO" : 787.25,
-                    "SUF" : 745.5,
-                    "CAG" : 814.15,
-                    "CHQ" : 1922.47,
-                    "CLY" : 515.99,
-                    "ERF" : 636.9,
-                    "FNI" : 306.45,
-                    "FSC" : 578.45,
-                    "FUE" : 2639.27,
-                    "LCG" : 1188.81,
-                    "LIL" : 538.7,
-                    "LPA" : 2774.33,
-                    "LRH" : 562.18,
-                    "NBE" : 1187.19,
-                    "NTE" : 597.63,
-                    "PUY" : 197.87,
-                    "QLA" : 3791.97,
-                    "RNS" : 370.32,
-                    "SCQ" : 1208.52,
-                    "SKP" : 1325.63,
-                    "RBA" : 1745.22,
-                    "EPL" : 232.23,
-                    "ALG" : 1088.18,
-                    "BEY" : 2837.2,
-                    "SAW" : 1955.57,
-                    "MRU" : 1644.96,
-                    "ASR" : 2534.94,
-                    "TUN" : 1099.38}
+                      "ATH" : 6861,
+                      "AYT" : 2291,
+                      "BDS" : 5383,
+                      "DJE" : 175,
+                      "DME" : 2430,
+                      "GVA" : 0,
+                      "HER" : 4855,
+                      "HRG" : 3226,
+                      "KGS" : 2031,
+                      "KLX" : 1666,
+                      "LCY" : 734,
+                      "LED" : 2190,
+                      "OLB" : 7846,
+                      "OSL" : 1588,
+                      "PDL" : 2772,
+                      "SKG" : 1502,
+                      "ZAG" : 772,
+                      "ZTH" : 1541,
+                      "ACE" : 343.92,
+                      "ADB" : 1938.56,
+                      "AGA" : 2221.46,
+                      "AHO" : 648.28,
+                      "AOI" : 641.68,
+                      "AQJ" : 3112.9,
+                      "BEG" : 1116.6,
+                      "BIA" : 474.94,
+                      "BIO" : 787.25,
+                      "SUF" : 745.5,
+                      "CAG" : 814.15,
+                      "CHQ" : 1922.47,
+                      "CLY" : 515.99,
+                      "ERF" : 636.9,
+                      "FNI" : 306.45,
+                      "FSC" : 578.45,
+                      "FUE" : 2639.27,
+                      "LCG" : 1188.81,
+                      "LIL" : 538.7,
+                      "LPA" : 2774.33,
+                      "LRH" : 562.18,
+                      "NBE" : 1187.19,
+                      "NTE" : 597.63,
+                      "PUY" : 197.87,
+                      "QLA" : 3791.97,
+                      "RNS" : 370.32,
+                      "SCQ" : 1208.52,
+                      "SKP" : 1325.63,
+                      "RBA" : 1745.22,
+                      "EPL" : 232.23,
+                      "ALG" : 1088.18,
+                      "BEY" : 2837.2,
+                      "SAW" : 1955.57,
+                      "MRU" : 1644.96,
+                      "ASR" : 2534.94,
+                      "TUN" : 1099.38}
 
     # --------------------------------------
     # Traitements de données
@@ -503,7 +515,7 @@ def Delai(conversion, conversion_airline, data, data_future):
                 mtow = data_future_conversion["MTOW"].iloc[0]
             data_future.loc[(data_future["Airline IATA Code"] == airline) & (data_future["Aircraft Subtype IATA Type"] == aircraft), "MTOW"] = mtow
 
-                
+            
     # 8) Airline
     # ---------------------------------------
 
@@ -546,9 +558,9 @@ def Delai(conversion, conversion_airline, data, data_future):
     data = data[(data["A_Delay"] >= -30) & (data["A_Delay"] <= 50)]
 
     liste_columns = ["TT", "WeekDay", "Months", "Hour", "STT", 
-                "Official IATA Airport Code_DEP", "Official IATA Airport Code_ARR", 'Airline IATA Code',
-                "LF_depart", "LF_arrivee", "Aircraft Subtype IATA Type", 
-                'VID', 'MTOW', 'Season']
+                 "Official IATA Airport Code_DEP", "Official IATA Airport Code_ARR", 'Airline IATA Code',
+                 "LF_depart", "LF_arrivee", "Aircraft Subtype IATA Type", 
+                 'VID', 'MTOW', 'Season']
 
     data = data[liste_columns] 
     data_test_future = data_future[liste_columns[1:]]
@@ -604,9 +616,9 @@ def Delai(conversion, conversion_airline, data, data_future):
     data["French Sector_ARR"] = label_encoder_french.transform(data["French Sector_ARR"])
 
     liste_columns = ['A_Delay', 'Call Sign - IATA_ARR', 'Schengen Flight_ARR', 'French Sector_ARR',
-                    'Airline IATA Code', 'Official IATA Airport Code_ARR', 
+                     'Airline IATA Code', 'Official IATA Airport Code_ARR', 
                 'VID', 'WeekDay', 'Months', 'Hour', 'Congestion', 'MTOW',
-                    'LF_arrivee', 'Season']
+                     'LF_arrivee', 'Season']
 
     data = data[liste_columns]
     data_test_future = data_future[liste_columns[1:]]
@@ -655,12 +667,19 @@ def Delai(conversion, conversion_airline, data, data_future):
     data_future.loc[data_future['pred_tt'] == timedelta(minutes = 0), 'predictions_DEP'] = data_future.loc[data_future['pred_tt'] == timedelta(minutes = 0), 'Local Schedule Time_DEP']
 
     data, data_ns = first_change(data_future)
-    data.to_csv('//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Output/Expected_Time.csv', index=False)
+    
+    # CORRECTION : S'assurer que le dossier de sortie existe
+    CHEMIN_OUTPUT.mkdir(parents=True, exist_ok=True)
+    
+    data.to_csv(CHEMIN_OUTPUT / 'Expected_Time.csv', index=False)
+
 
     data_occupation_schedule, data_occupation_pred = get_matrice_data(data)
     data_wing_pred, data_wing_schedule = get_matrice_data_wing(data_ns)
 
+    # CORRECTION : Rétablissement du chemin "en dur" vers le dossier de Louise, selon la demande.
     nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/7_LOUISE/DCB LLA/Creation_Fichiers")
+    nouveau_repertoire.mkdir(parents=True, exist_ok=True) # S'assurer qu'il existe
     os.chdir(nouveau_repertoire)
 
     with open("data_occupation_schedule.json", "w") as f:
@@ -675,6 +694,7 @@ def Delai(conversion, conversion_airline, data, data_future):
     with open("data_wing_pred.json", "w") as f:
         json.dump(data_wing_pred, f)
 
+
     BSH_wing_pred, BSH_wing_schedule = get_matrice_data_wing(data,True)
     dates = list(BSH_wing_pred.keys())
     mnt = datetime.now().strftime(format="%Y%m%d%H%M")
@@ -686,13 +706,18 @@ def Delai(conversion, conversion_airline, data, data_future):
     schedule_name = mnt + sn + first_date + "-" + last_date + ".json"
 
     # Exemple d'utilisation
-    super_dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Demande"
+    # CORRECTION : Remplacement de chemin_app par CHEMIN_DATA_SOURCE
+    super_dossier = CHEMIN_DATA_SOURCE / "Demande"
+
     deplacer_fichier(fn,super_dossier,"Stand/Forecast")
     deplacer_fichier(sn,super_dossier,"Stand/Schedule")
 
-    with open(os.path.join(super_dossier,"Actuel",forecast_name),"w") as f:
+    # CORRECTION : S'assurer que le dossier "Actuel" existe
+    (super_dossier / "Actuel").mkdir(parents=True, exist_ok=True)
+    
+    with open(super_dossier / "Actuel" / forecast_name,"w") as f:
         json.dump(BSH_wing_pred,f)
-    with open(os.path.join(super_dossier,"Actuel",schedule_name),"w") as f:
+    with open(super_dossier / "Actuel" / schedule_name,"w") as f:
         json.dump(BSH_wing_schedule,f)
 
     return data
