@@ -8,18 +8,27 @@ from Pax_PlanningIdealDouane import PlanningIdealDouane
 from Pax_PlanningIdealSurete import PlanningIdealSurete
 from Pax_SUPjson import SUPjson
 from PBI_CalculPowerBI import CalculPBI
-from Pax_PlaningSurete import PlanningSurete
+from Pax_PlanningSurete import PlanningSurete
 from time import time
 import os
 from datetime import datetime
+# CORRECTIONS : Imports supplémentaires nécessaires pour le chargement
+from chemin_dossier import CHEMIN_INPUT, CHEMIN_OUTPUT
+from pathlib import Path
+import pandas as pd
 
 a = time()
 
-os.chdir("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/WEBI")
-for file in os.listdir():
-    date = datetime.fromtimestamp(os.path.getmtime(file)).date()
-    if date != datetime.now().date():
-        print(f"L'export WEBI {file} n'a pas fonctionné aujourd'hui. La version utilisée sera celle du {date}.")
+# --- VÉRIFICATION WEBI (GARDÉE) ---
+webi_path = CHEMIN_INPUT / "WEBI"
+if webi_path.exists():
+    for file_path in webi_path.iterdir():
+        date = datetime.fromtimestamp(file_path.stat().st_mtime).date()
+        if date != datetime.now().date():
+            print(f"L'export WEBI {file_path.name} n'a pas fonctionné aujourd'hui. La version utilisée sera celle du {date}.")
+else:
+    print(f"Erreur : Dossier WEBI non trouvé à l'emplacement : {webi_path}")
+
 
 print("Traitement de la donnée historique")
 data_histo, conv_MTOW, conv_airline = Historique()
@@ -39,8 +48,32 @@ Embarquement(data_predi)
 print("Application des show-up profiles aux vols")
 DCB_xlsx, PlanningCI_xlsx = ApplicationSUP()
 
+""" # --- CHARGEMENT RAPIDE (REMPLACEMENT) ---
+print("CHARGEMENT RAPIDE : Lecture des sorties CSV existantes (au lieu de les re-générer)...")
+
+# 1. Charger DCB_xlsx (la sortie de ApplicationSUP)
+dcb_path = CHEMIN_OUTPUT / "DCB_output.csv"
+if not dcb_path.exists():
+    print(f"ERREUR: {dcb_path} non trouvé. Veuillez d'abord exécuter ApplicationSUP() au moins une fois.")
+else:
+    print(f"Chargement de {dcb_path}")
+    DCB_xlsx = pd.read_csv(dcb_path)
+    DCB_xlsx["Date et heure"] = pd.to_datetime(DCB_xlsx["Date et heure"]) # Très important
+
+# 2. Charger PlanningCI_xlsx (la sortie de ApplicationSUP)
+plan_ci_path = CHEMIN_OUTPUT / "PlanningCheckin.csv"
+if not plan_ci_path.exists():
+    print(f"ERREUR: {plan_ci_path} non trouvé. Veuillez d'abord exécuter ApplicationSUP() au moins une fois.")
+else:
+    print(f"Chargement de {plan_ci_path}")
+    PlanningCI_xlsx = pd.read_csv(plan_ci_path)
+    PlanningCI_xlsx["Date et heure"] = pd.to_datetime(PlanningCI_xlsx["Date et heure"]) # Très important
+
+# --- FIN DE LA MODIFICATION --- """
+
 print("Transformation du planning sûreté au format DCB app python")
-PlanningSurete("csv")
+# Nous passons DCB_xlsx pour que PlanningSurete utilise la bonne plage de dates
+PlanningSurete(DCB_xlsx, "csv")
 
 print("Calcul du planning idéal à la douane")
 PlanningIdealDouane(DCB_xlsx)

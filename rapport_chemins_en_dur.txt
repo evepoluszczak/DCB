@@ -1,0 +1,72 @@
+RAPPORT D'ANALYSE DES CHEMINS EN DUR
+================================================================================
+
+Nombre de fichiers avec chemins en dur : 12
+
+Fichier : Avion_ExpectedTime.py
+Occurrences : 5
+  Ligne 272 : distance = pd.read_csv("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Autre/Distance.csv")
+  Ligne 273 : conversion_aero = pd.read_excel("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Autre/Conversion_aero.xlsx")
+  Ligne 658 : data.to_csv('//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Output/Expected_Time.csv', index=False)
+  Ligne 663 : nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/7_LOUISE/DCB LLA/Creation_Fichiers")
+  Ligne 689 : super_dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Demande"
+
+Fichier : Avion_Fonctions_data_future.py
+Occurrences : 1
+  Ligne 213 : nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Planning_EZS")
+
+Fichier : Avion_LinkFutur.py
+Occurrences : 6
+  Ligne 13 : dossier_planning_EZS_PBI = "//gva.tld/aig/O/12_EM-DO/4_OOP/17_PBI/01 - Data/02 - Data/Airlines/EasyJet/EasyJet - SSIM/Easyjet_SSIM_xlsx"
+  Ligne 14 : dossier_planning_EZS_DCB = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Planning_EZS"
+  Ligne 18 : path = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/WEBI")
+  Ligne 75 : nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Output")
+  Ligne 258 : nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Output")
+  Ligne 283 : vol_type.to_csv("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/7_LOUISE/DCB LLA/Creation_Fichiers/vol_type.csv",index=False)
+
+Fichier : Avion_LinkHisto.py
+Occurrences : 2
+  Ligne 32 : path = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/WEBI")
+  Ligne 127 : nouveau_repertoire = Path("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Output")
+
+Fichier : Avion_Mouvements.py
+Occurrences : 1
+  Ligne 82 : super_dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Demande"
+
+Fichier : PBI_CalculPowerBI.py
+Occurrences : 3
+  Ligne 7 : DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source"
+  Ligne 180 : seuil.to_csv("//gva.tld/aig/O/12_EM-DO/4_OOP/17_PBI/02 - Dashboards en développement/EPL/15. DCB/Power BI DCB/Power BI DCB/Data/seuil.csv",index=False)
+  Ligne 299 : df_final.to_csv("//gva.tld/aig/O/12_EM-DO/4_OOP/17_PBI/02 - Dashboards en développement/EPL/15. DCB/Power BI DCB/Power BI DCB/Data/global.csv",index=False)
+
+Fichier : Pax_ApplicationSUP.py
+Occurrences : 2
+  Ligne 9 : DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Autre"
+  Ligne 187 : os.chdir("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data")
+
+Fichier : Pax_Embarquement.py
+Occurrences : 2
+  Ligne 49 : data = pd.read_csv("//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/WEBI/DCB_BSH_Landside.csv")
+  Ligne 86 : super_dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Demande"
+
+Fichier : Pax_PlanningIdealDouane.py
+Occurrences : 2
+  Ligne 8 : DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source"
+  Ligne 163 : dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Capacite/Planning"
+
+Fichier : Pax_PlanningIdealSurete.py
+Occurrences : 2
+  Ligne 8 : DATA_FOLDER = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source"
+  Ligne 152 : dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Capacite/Planning"
+
+Fichier : Pax_PlanningSurete.py
+Occurrences : 2
+  Ligne 29 : dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/TraitementDonnee/Data/Input/Autre"
+  Ligne 73 : dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Capacite/Planning"
+
+Fichier : Pax_SUPjson.py
+Occurrences : 3
+  Ligne 71 : dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Demande"
+  Ligne 99 : dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Capacite/Planning"
+  Ligne 107 : dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Annexe"
+
