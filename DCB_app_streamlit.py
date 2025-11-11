@@ -35,15 +35,21 @@ st.set_page_config(
     }
 )
 
-# CSS Personnalisé pour un design moderne
+# CSS Personnalisé pour un design moderne et optimisé
 st.markdown("""
 <style>
-    /* Design global moderne */
+    /* Design global moderne avec animation */
     .main {
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        animation: fadeIn 0.5s ease-in;
     }
 
-    /* Header amélioré */
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    /* Header amélioré avec animation */
     .dcb-header {
         background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%);
         padding: 2rem;
@@ -51,6 +57,36 @@ st.markdown("""
         box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         margin-bottom: 2rem;
         color: white;
+        animation: slideDown 0.6s ease-out;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .dcb-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes slideDown {
+        from {
+            transform: translateY(-20px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes shimmer {
+        0%, 100% { transform: translate(-50%, -50%) scale(1); }
+        50% { transform: translate(-30%, -30%) scale(1.1); }
     }
 
     .dcb-header h1 {
@@ -59,27 +95,60 @@ st.markdown("""
         margin: 0;
         font-size: 2.5rem;
         text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        position: relative;
+        z-index: 1;
     }
 
     .dcb-header p {
         color: #E0E7FF;
         margin: 0.5rem 0 0 0;
         font-size: 1.1rem;
+        position: relative;
+        z-index: 1;
     }
 
-    /* Cards modernes pour métriques */
+    /* Cards modernes pour métriques avec animations avancées */
     .metric-card {
         background: white;
         padding: 1.5rem;
         border-radius: 12px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         border-left: 4px solid #3B82F6;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        animation: slideUp 0.5s ease-out;
+        position: relative;
+        overflow: hidden;
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .metric-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 0;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.05));
+        transition: width 0.5s ease;
     }
 
     .metric-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 12px 35px rgba(59, 130, 246, 0.2);
+    }
+
+    .metric-card:hover::after {
+        width: 100%;
     }
 
     .metric-value {
@@ -151,7 +220,7 @@ st.markdown("""
         color: white;
     }
 
-    /* Boutons modernes */
+    /* Boutons modernes avec effets avancés */
     .stButton > button {
         background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%);
         color: white;
@@ -159,13 +228,37 @@ st.markdown("""
         border: none;
         padding: 0.5rem 2rem;
         font-weight: 600;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stButton > button::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .stButton > button:hover::before {
+        width: 300px;
+        height: 300px;
     }
 
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.5);
+    }
+
+    .stButton > button:active {
+        transform: translateY(-1px) scale(0.98);
     }
 
     /* Tabs modernes */
@@ -390,6 +483,10 @@ def init_session_state():
         st.session_state.data_loaded = False
     if 'view_mode' not in st.session_state:
         st.session_state.view_mode = "dashboard"  # dashboard, calendar, analytics
+    if 'show_welcome' not in st.session_state:
+        st.session_state.show_welcome = True
+    if 'first_visit' not in st.session_state:
+        st.session_state.first_visit = True
 
 # ==================== CHARGEMENT DES DONNÉES ====================
 
@@ -625,6 +722,81 @@ def generate_heatmap_graph(data_dict, title):
     return fig
 
 # ==================== VUES DE L'APPLICATION ====================
+
+def display_welcome():
+    """Écran d'accueil pour nouveaux utilisateurs"""
+
+    st.markdown('''
+    <div class="dcb-header">
+        <h1>✈️ Bienvenue sur DCB Tool</h1>
+        <p>Demand Capacity Balancing - Geneva Airport</p>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        st.markdown("""
+        ### 👋 Première visite ?
+
+        Cette application vous permet d'analyser et de visualiser les données de **Demand Capacity Balancing**
+        pour l'aéroport de Genève.
+
+        #### 🎯 Fonctionnalités principales
+
+        - **📊 Dashboard** : Vue d'ensemble avec KPIs et métriques clés
+        - **📅 Calendrier** : Visualisation mensuelle des performances
+        - **🛫 Opérations** : Analyse détaillée des mouvements de piste et stands
+        - **👥 Passagers** : Suivi des flux passagers et files d'attente
+        - **📈 Analytique** : Tendances et statistiques avancées
+
+        #### 🚀 Pour commencer
+
+        1. Utilisez la **sidebar** (à gauche) pour naviguer
+        2. Sélectionnez votre **mode de vue** (Dashboard, Calendrier, Détails)
+        3. Choisissez le **type de données** (Forecast ou Schedule)
+        4. Explorez les **processeurs** qui vous intéressent
+
+        #### 💡 Codes couleur
+
+        - 🟢 **Vert** : Conditions excellentes (< 5 min d'attente)
+        - 🟡 **Jaune** : Conditions acceptables (5-10 min)
+        - 🔴 **Rouge** : Conditions critiques (> 10 min)
+
+        ---
+
+        """, unsafe_allow_html=True)
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            if st.button("🚀 Démarrer l'exploration", key="start_exploration", use_container_width=True):
+                st.session_state.show_welcome = False
+                st.session_state.first_visit = False
+                st.rerun()
+
+        with col_b:
+            if st.button("📚 Voir le Dashboard", key="go_dashboard", use_container_width=True):
+                st.session_state.show_welcome = False
+                st.session_state.selected_layout = "dashboard"
+                st.rerun()
+
+        st.markdown("---")
+
+        with st.expander("ℹ️ Aide et support"):
+            st.markdown("""
+            **Besoin d'aide ?**
+
+            - Consultez la **documentation** dans les fichiers README
+            - Utilisez la **page Administration** pour gérer vos données
+            - Les **tooltips** vous guident à travers l'interface
+
+            **Raccourcis clavier** (Streamlit) :
+            - `Ctrl + R` : Actualiser l'application
+            - `Ctrl + K` : Ouvrir la recherche
+            """)
 
 def display_dashboard():
     """Dashboard principal avec KPIs et visualisations clés"""
@@ -1147,12 +1319,22 @@ def main():
 
     # ==================== CONTENU PRINCIPAL ====================
 
-    if st.session_state.selected_layout == "dashboard":
+    # Afficher l'écran d'accueil pour les nouveaux utilisateurs
+    if st.session_state.show_welcome and st.session_state.first_visit:
+        display_welcome()
+    elif st.session_state.selected_layout == "dashboard":
         display_dashboard()
     elif st.session_state.selected_layout == "calendar":
         display_calendar()
     elif st.session_state.selected_layout == "details":
         display_details()
+
+    # Bouton pour réafficher l'écran d'accueil
+    with st.sidebar:
+        st.markdown("---")
+        if st.button("ℹ️ Aide & Guide", use_container_width=True):
+            st.session_state.show_welcome = True
+            st.rerun()
 
 if __name__ == "__main__":
     main()
