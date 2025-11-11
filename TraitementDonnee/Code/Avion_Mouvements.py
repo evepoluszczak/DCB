@@ -6,6 +6,8 @@ from datetime import datetime
 import os
 import re
 import shutil
+from chemin_dossier import CHEMIN_DATA_SOURCE
+from pathlib import Path 
 
 def get_matrice_mvt (data) :
     """
@@ -45,23 +47,35 @@ def get_matrice_mvt (data) :
     
     return mvt_pred, mvt_schedule
 
-def deplacer_fichier(nom_cible, super_dossier, sous_dossier = None):
-    # Obtenir le chemin absolu des dossiers
-    chemin_actuel = os.path.join(super_dossier, 'Actuel')
-    chemin_historique = os.path.join(super_dossier, 'Historique')
+def deplacer_fichier(nom_cible, super_dossier: Path, sous_dossier: str = None):
+    # super_dossier est maintenant un objet Path
+    chemin_actuel = super_dossier / 'Actuel'
+    chemin_historique = super_dossier / 'Historique'
     if sous_dossier:
-        chemin_historique = os.path.join(chemin_historique,sous_dossier)
+        chemin_historique = chemin_historique / sous_dossier
+
+    # S'assurer que le dossier de destination existe
+    chemin_historique.mkdir(parents=True, exist_ok=True)
 
     # Expression régulière : date + nom + date-date.json
     pattern = re.compile(rf'^(\d{{12}}){re.escape(nom_cible)}(\d{{8}}-\d{{8}})\.json$')
 
-    # Parcourir les fichiers du dossier Actuel
-    for fichier in os.listdir(chemin_actuel):
-        if pattern.match(fichier):
-            source = os.path.join(chemin_actuel, fichier)
-            destination = os.path.join(chemin_historique, fichier)
+    # Gérer le cas où le dossier "Actuel" n'existe pas
+    if not chemin_actuel.exists():
+        print(f"Dossier 'Actuel' non trouvé : {chemin_actuel}")
+        return
+
+    # Parcourir les fichiers du dossier Actuel avec iterdir()
+    for fichier_path in chemin_actuel.iterdir():
+        fichier_nom = fichier_path.name # Obtenir le nom du fichier
+        
+        if pattern.match(fichier_nom):
+            source = fichier_path
+            destination = chemin_historique / fichier_nom
+            
+            # shutil.move fonctionne parfaitement avec les objets Path
             shutil.move(source, destination)
-            print(f"Fichier déplacé : {fichier}")
+            print(f"Fichier déplacé : {fichier_nom}")
             return
 
     print(f"Aucun fichier correspondant à '{nom_cible}' trouvé dans '{chemin_actuel}'.")
@@ -79,11 +93,15 @@ def Mouvements(data):
     schedule_name = mnt + sn + first_date + "-" + last_date + ".json"
 
     # Exemple d'utilisation
-    super_dossier = "//gva.tld/aig/O/12_EM-DO/4_OOP/10_PERSONAL_FOLDERS/8_BASTIEN/DCB_Standalone_App/Data Source/Demande"
+    super_dossier = CHEMIN_DATA_SOURCE / "Demande"
     deplacer_fichier(fn,super_dossier,"Piste/Forecast")
     deplacer_fichier(sn,super_dossier,"Piste/Schedule")
 
-    with open(os.path.join(super_dossier,"Actuel",forecast_name),"w") as f:
+    # S'assurer que le dossier "Actuel" existe avant d'écrire
+    (super_dossier / "Actuel").mkdir(parents=True, exist_ok=True)
+
+    # Utiliser l'opérateur / pour construire le chemin
+    with open(super_dossier / "Actuel" / forecast_name,"w") as f:
         json.dump(mvt_pred,f)
-    with open(os.path.join(super_dossier,"Actuel",schedule_name),"w") as f:
+    with open(super_dossier / "Actuel" / schedule_name,"w") as f:
         json.dump(mvt_schedule,f)
