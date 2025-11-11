@@ -17,6 +17,10 @@ import plotly.graph_objs as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
+# Import du système de chemins pour lancement local
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'TraitementDonnee', 'Code'))
+from chemin_dossier import CHEMIN_DATA_SOURCE, CHEMIN_APP_RACINE
+
 # ==================== CONFIGURATION ====================
 
 st.set_page_config(
@@ -225,26 +229,12 @@ st.markdown("""
 post_ops = False
 
 def get_base_path():
-    if getattr(sys, 'frozen', False):
-        return sys._MEIPASS
-    return os.path.dirname(os.path.abspath(__file__))
+    """Retourne le chemin racine de l'application"""
+    return str(CHEMIN_APP_RACINE)
 
 def get_data_folder():
-    """Détecte automatiquement le dossier de données disponible"""
-    base_path = get_base_path()
-    possible_paths = [
-        os.path.join(base_path, "Data Source"),
-        os.path.join(base_path, "DataSource"),
-        os.path.join(base_path, "data"),
-        os.path.join(base_path, "Data"),
-    ]
-    for path in possible_paths:
-        try:
-            if os.path.exists(path) and os.path.isdir(path):
-                return path
-        except:
-            continue
-    return None
+    """Retourne le chemin du dossier 'Data Source' en utilisant chemin_dossier.py"""
+    return str(CHEMIN_DATA_SOURCE)
 
 # Initialisation différée
 ASSETS_FOLDER = None
