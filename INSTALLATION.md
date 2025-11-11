@@ -1,5 +1,90 @@
 # Guide d'installation - Application DCB
 
+## 🏠 Lancement en local
+
+L'application DCB utilise maintenant un système de chemins dynamiques pour faciliter le lancement en local, que ce soit depuis l'aéroport ou depuis votre domicile.
+
+### Configuration automatique des chemins
+
+Le fichier `TraitementDonnee/Code/chemin_dossier.py` gère automatiquement tous les chemins :
+
+```python
+# Structure détectée automatiquement :
+CHEMIN_APP_RACINE      → /chemin/vers/DCB/
+CHEMIN_DATA_SOURCE     → /chemin/vers/DCB/Data Source/
+DOSSIER_TRAITEMENT     → /chemin/vers/DCB/TraitementDonnee/
+DOSSIER_DATA           → /chemin/vers/DCB/TraitementDonnee/Data/
+CHEMIN_INPUT           → /chemin/vers/DCB/TraitementDonnee/Data/Input/
+CHEMIN_OUTPUT          → /chemin/vers/DCB/TraitementDonnee/Data/Output/
+```
+
+### Test de la configuration
+
+Avant de lancer l'application, vérifiez que tous les chemins sont correctement configurés :
+
+```bash
+python test_chemins_local.py
+```
+
+Vous devriez voir :
+```
+============================================================
+TEST DES CHEMINS LOCAUX - DCB APPLICATION
+============================================================
+✅ Import du module chemin_dossier réussi!
+
+CHEMINS CONFIGURÉS:
+  📁 CHEMIN_APP_RACINE    : /home/user/DCB
+  📊 CHEMIN_DATA_SOURCE   : /home/user/DCB/Data Source
+  ...
+
+✅ TOUS LES CHEMINS SONT VALIDES!
+✅ L'application peut être lancée en local avec:
+   streamlit run DCB_app_streamlit.py
+============================================================
+```
+
+### Lancement rapide
+
+```bash
+# 1. Se placer dans le dossier DCB
+cd /chemin/vers/DCB
+
+# 2. Activer l'environnement virtuel (si utilisé)
+source venv/bin/activate  # Linux/Mac
+# ou
+venv\Scripts\activate  # Windows
+
+# 3. Lancer l'application
+streamlit run DCB_app_streamlit.py
+
+# L'application s'ouvrira dans votre navigateur par défaut
+# URL : http://localhost:8501
+```
+
+### Structure de dossiers requise
+
+```
+DCB/
+├── DCB_app_streamlit.py        # Application principale
+├── TraitementDonnee/
+│   ├── Code/
+│   │   └── chemin_dossier.py   # Configuration des chemins
+│   └── Data/
+│       ├── Input/              # Données d'entrée
+│       └── Output/             # Résultats
+├── Data Source/                # Données sources
+│   ├── Demande/
+│   │   └── Actuel/            # Fichiers JSON de demande
+│   ├── Capacite/
+│   │   └── Actuel/            # Fichiers JSON de capacité
+│   ├── LevelOfService/
+│   │   └── Actuel/            # Fichiers JSON LOS
+│   └── Annexe/
+│       └── Actuel/            # Fichiers JSON annexes
+└── requirements.txt            # Dépendances Python
+```
+
 ## 📦 Installation des dépendances
 
 ### Installation standard
